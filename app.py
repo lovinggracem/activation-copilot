@@ -1,20 +1,12 @@
-import re
-from io import BytesIO
-
 import streamlit as st
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer
 from utils import (
+    build_pdf_bytes,
     generate_activation_summary,
+    generate_agent_templates,
     generate_architecture,
+    generate_handover,
     generate_mvps,
     generate_roadmap,
-    generate_handover,
-    generate_agent_templates,
     enhance_plan_with_llm,
 )
 
@@ -26,13 +18,11 @@ TEXT = "#1f2937"
 MUTED = "#6b7280"
 BORDER = "#d9e2ec"
 
-
 st.set_page_config(
     page_title="AI Activation Copilot",
     page_icon="❄️",
     layout="wide",
 )
-
 
 st.markdown(
     f"""
@@ -81,11 +71,6 @@ st.markdown(
         padding: 1.2rem 1.2rem 0.9rem 1.2rem;
         box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
         margin-bottom: 1rem;
-    }}
-
-    .content-card h3 {{
-        margin-top: 0;
-        margin-bottom: 0.8rem;
     }}
 
     div[data-testid="metric-container"] {{
@@ -209,254 +194,17 @@ st.markdown(
         font-weight: 700;
         margin-bottom: 0.35rem;
     }}
-
-    .no-anchor a {{
-        display: none !important;
-    }}
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 
-def clean_markdown_for_pdf(text: str) -> str:
-    text = re.sub(r"`([^`]*)`", r"\1", text)
-    text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
-    text = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", text)
-    text = text.replace("&", "&amp;")
-    text = text.replace("<b>", "%%B%%").replace("</b>", "%%/B%%")
-    text = text.replace("<i>", "%%I%%").replace("</i>", "%%/I%%")
-    text = text.replace("<", "&lt;").replace(">", "&gt;")
-    text = text.replace("%%B%%", "<b>").replace("%%/B%%", "</b>")
-    text = text.replace("%%I%%", "<i>").replace("%%/I%%", "</i>")
-    return text
-
-
-def paragraph_blocks(text: str):
-    lines = [line.rstrip() for line in text.split("\n")]
-    blocks = []
-    current = []
-
-    for line in lines:
-        if not line.strip():
-            if current:
-                blocks.append("\n".join(current).strip())
-                current = []
-        else:
-            current.append(line)
-
-    if current:
-        blocks.append("\n".join(current).strip())
-
-    return blocks
-
-
-def render_markdown_in_card(title: str, body: str):
+def render_markdown_in_card(title: str, body: str) -> None:
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     st.markdown(f"### {title}")
     st.markdown(body)
     st.markdown("</div>", unsafe_allow_html=True)
-
-
-def build_pdf_bytes(
-    customer_name,
-    industry,
-    data_sources,
-    bi_tool,
-    refresh_cadence,
-    priorities,
-    unstructured_data,
-    fiscal_timing,
-    additional_context,
-    summary,
-    architecture,
-    mvps,
-    roadmap,
-    handover,
-    agents,
-    enhanced_output=None,
-):
-    buffer = BytesIO()
-
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        leftMargin=18 * mm,
-        rightMargin=18 * mm,
-        topMargin=20 * mm,
-        bottomMargin=18 * mm,
-        title=f"AI Activation Plan - {customer_name}",
-        author="AI Activation Copilot",
-    )
-
-    styles = getSampleStyleSheet()
-
-    title_style = ParagraphStyle(
-        "TitleStyle",
-        parent=styles["Title"],
-        fontName="Helvetica-Bold",
-        fontSize=22,
-        leading=28,
-        textColor=colors.HexColor("#16324f"),
-        alignment=TA_LEFT,
-        spaceAfter=8,
-    )
-
-    sub_style = ParagraphStyle(
-        "SubStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica",
-        fontSize=10.5,
-        leading=14,
-        textColor=colors.HexColor("#5b6b7a"),
-        spaceAfter=14,
-    )
-
-    h1 = ParagraphStyle(
-        "H1",
-        parent=styles["Heading1"],
-        fontName="Helvetica-Bold",
-        fontSize=14,
-        leading=18,
-        textColor=colors.HexColor(BRAND_BLUE),
-        spaceBefore=10,
-        spaceAfter=8,
-    )
-
-    h2 = ParagraphStyle(
-        "H2",
-        parent=styles["Heading2"],
-        fontName="Helvetica-Bold",
-        fontSize=11.5,
-        leading=15,
-        textColor=colors.HexColor("#16324f"),
-        spaceBefore=8,
-        spaceAfter=6,
-    )
-
-    body = ParagraphStyle(
-        "Body",
-        parent=styles["BodyText"],
-        fontName="Helvetica",
-        fontSize=9.8,
-        leading=14,
-        textColor=colors.HexColor("#243746"),
-        spaceAfter=6,
-    )
-
-    bullet_style = ParagraphStyle(
-        "BulletStyle",
-        parent=body,
-        leftIndent=8,
-        firstLineIndent=0,
-        spaceBefore=0,
-        spaceAfter=2,
-    )
-
-    story = []
-
-    story.append(Paragraph("AI Activation Copilot", title_style))
-    story.append(Paragraph(f"{customer_name} - {industry} - 90-Day Activation Blueprint", sub_style))
-
-    story.append(Paragraph("Customer Inputs", h1))
-    inputs = [
-        f"Industry: {industry}",
-        f"Primary data sources: {', '.join(data_sources) if data_sources else 'None selected'}",
-        f"Primary BI tool: {bi_tool}",
-        f"Operational refresh cadence: {refresh_cadence}",
-        f"Unstructured data available: {', '.join(unstructured_data) if unstructured_data else 'None selected'}",
-        f"Business priorities: {', '.join(priorities) if priorities else 'None selected'}",
-        f"Fiscal timing: {fiscal_timing}",
-    ]
-    story.append(
-        ListFlowable(
-            [ListItem(Paragraph(clean_markdown_for_pdf(item), bullet_style)) for item in inputs],
-            bulletType="bullet",
-            leftIndent=14,
-        )
-    )
-    story.append(Spacer(1, 8))
-
-    if additional_context.strip():
-        story.append(Paragraph("Discovery Notes for AI Refinement", h1))
-        for block in paragraph_blocks(additional_context):
-            story.append(Paragraph(clean_markdown_for_pdf(block).replace("\n", "<br/>"), body))
-        story.append(Spacer(1, 4))
-
-    def add_text_section(title, text):
-        story.append(Paragraph(title, h1))
-        for block in paragraph_blocks(text):
-            story.append(Paragraph(clean_markdown_for_pdf(block).replace("\n", "<br/>"), body))
-        story.append(Spacer(1, 4))
-
-    add_text_section("Activation Summary", summary)
-    add_text_section("Recommended Architecture", architecture)
-
-    story.append(Paragraph("Thin-Slice MVPs", h1))
-    if mvps:
-        for mvp in mvps:
-            story.append(Paragraph(clean_markdown_for_pdf(mvp["title"]), h2))
-            items = [
-                f"<b>Scope:</b> {mvp['scope']}",
-                f"<b>Why first:</b> {mvp['why']}",
-                f"<b>Business outcome:</b> {mvp['outcome']}",
-            ]
-            story.append(
-                ListFlowable(
-                    [ListItem(Paragraph(clean_markdown_for_pdf(item), bullet_style)) for item in items],
-                    bulletType="bullet",
-                    leftIndent=14,
-                )
-            )
-            story.append(Spacer(1, 4))
-    else:
-        story.append(Paragraph("No MVPs generated.", body))
-
-    story.append(Paragraph("30-60-90 Activation Plan", h1))
-    for phase in roadmap:
-        story.append(Paragraph(clean_markdown_for_pdf(phase["phase"]), h2))
-        phase_items = []
-        phase_items.extend([f"<b>Objective:</b> {item}" for item in phase["objectives"]])
-        phase_items.extend([f"<b>Deliverable:</b> {item}" for item in phase["deliverables"]])
-        phase_items.extend([f"<b>Team impacted:</b> {item}" for item in phase["teams"]])
-
-        story.append(
-            ListFlowable(
-                [ListItem(Paragraph(clean_markdown_for_pdf(item), bullet_style)) for item in phase_items],
-                bulletType="bullet",
-                leftIndent=14,
-            )
-        )
-        story.append(Spacer(1, 4))
-
-    add_text_section("Day 90 Handover", handover)
-
-    story.append(Paragraph("Suggested Agent Templates", h1))
-    if agents:
-        for agent in agents:
-            story.append(Paragraph(clean_markdown_for_pdf(agent["name"]), h2))
-            agent_items = [
-                f"<b>Purpose:</b> {agent['purpose']}",
-                f"<b>Inputs:</b> {', '.join(agent['inputs'])}",
-                f"<b>Pattern:</b> {agent['pattern']}",
-            ]
-            story.append(
-                ListFlowable(
-                    [ListItem(Paragraph(clean_markdown_for_pdf(item), bullet_style)) for item in agent_items],
-                    bulletType="bullet",
-                    leftIndent=14,
-                )
-            )
-            story.append(Spacer(1, 4))
-    else:
-        story.append(Paragraph("No agent templates generated.", body))
-
-    if enhanced_output:
-        add_text_section("AI-Enhanced Activation Blueprint", enhanced_output)
-
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.getvalue()
 
 
 st.title("AI Activation Copilot")
@@ -471,13 +219,13 @@ if "enhanced_output" not in st.session_state:
 if "last_plan_signature" not in st.session_state:
     st.session_state.last_plan_signature = None
 
-
 with st.sidebar:
     st.header("Customer Inputs")
     st.markdown(
         """
         <div class="mini-note">
-        Capture the customer landscape, priorities, stakeholder context, and delivery constraints, then generate a structured activation blueprint.
+        Capture the customer landscape, priorities, stakeholder context, and delivery constraints,
+        then generate a structured activation blueprint.
         </div>
         """,
         unsafe_allow_html=True,
@@ -548,7 +296,6 @@ with st.sidebar:
     if st.button("Generate Activation Plan", type="primary", use_container_width=True):
         st.session_state.plan_generated = True
 
-
 if not st.session_state.plan_generated:
     st.markdown(
         """
@@ -559,15 +306,14 @@ if not st.session_state.plan_generated:
                 then optionally refine it with AI using richer customer notes.
             </p>
             <p style="margin-bottom:0; color:#667085;">
-                Includes customer summary, architecture recommendation, thin-slice MVPs, 30-60-90 roadmap,
-                handover guidance, agent ideas, and export to PDF.
+                Includes customer summary, architecture recommendation, thin-slice MVPs,
+                30-60-90 roadmap, handover guidance, agent ideas, and export to PDF.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.stop()
-
 
 summary = generate_activation_summary(
     customer_name=customer_name,
@@ -622,7 +368,6 @@ plan_signature = (
 if st.session_state.last_plan_signature != plan_signature:
     st.session_state.enhanced_output = None
     st.session_state.last_plan_signature = plan_signature
-
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Industry", industry)
