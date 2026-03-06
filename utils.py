@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import json
+import re
+from io import BytesIO
 from typing import Any
 
 from openai import OpenAI
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import mm
+from reportlab.platypus import ListFlowable, ListItem, Paragraph, SimpleDocTemplate, Spacer
 
 
 def _fmt_list(items: list[str]) -> str:
@@ -12,10 +20,6 @@ def _fmt_list(items: list[str]) -> str:
 
 def _bullets(items: list[str]) -> str:
     return "\n".join(f"- {item}" for item in items)
-
-
-def _title_case_priority(priority: str) -> str:
-    return priority.strip()
 
 
 def generate_activation_summary(
@@ -65,13 +69,22 @@ def generate_activation_summary(
     }
 
     mapped_outcomes = [priority_outcome[p] for p in priorities if p in priority_outcome]
-    outcome_sentence = (
-        "Near-term success should focus on using Snowflake to "
-        + ", ".join(mapped_outcomes[:-1])
-        + (", and " if len(mapped_outcomes) > 1 else "")
-        + (mapped_outcomes[-1] if mapped_outcomes else "create measurable business value quickly")
-        + "."
-    )
+    if mapped_outcomes:
+        if len(mapped_outcomes) == 1:
+            outcome_sentence = f"Near-term success should focus on using Snowflake to {mapped_outcomes[0]}."
+        elif len(mapped_outcomes) == 2:
+            outcome_sentence = (
+                f"Near-term success should focus on using Snowflake to {mapped_outcomes[0]} "
+                f"and {mapped_outcomes[1]}."
+            )
+        else:
+            outcome_sentence = (
+                "Near-term success should focus on using Snowflake to "
+                + ", ".join(mapped_outcomes[:-1])
+                + f", and {mapped_outcomes[-1]}."
+            )
+    else:
+        outcome_sentence = "Near-term success should focus on using Snowflake to create measurable business value quickly."
 
     return f"""**Customer:** {customer_name}
 
@@ -90,7 +103,7 @@ From an activation perspective, the most practical first step is not trying to t
 {outcome_sentence}
 
 A strong activation plan for this customer should therefore do three things in parallel: create trusted access to core data, deliver one or more business-visible MVPs, and build enough internal confidence that the customer can continue expanding after the initial 90-day engagement."""
-    
+
 
 def generate_architecture(
     industry: str,
@@ -197,7 +210,7 @@ def generate_mvps(
                 "title": "Inventory MVP: Stockout Risk View",
                 "scope": (
                     "Create a daily or intra-day inventory risk view that highlights fast-selling products, low cover positions, "
-                    "location/channel exposure, and a prioritized reorder or intervention list."
+                    "location or channel exposure, and a prioritized reorder or intervention list."
                 ),
                 "why": (
                     "This is commercially visible, easy for the business to understand, and directly tied to revenue protection."
@@ -225,7 +238,8 @@ def generate_mvps(
             {
                 "title": "Sentiment MVP: Customer Pain-Point Intelligence",
                 "scope": (
-                    "Aggregate customer feedback signals and categorize the main complaint, praise, and friction themes, with a simple view of spike areas by product, journey stage, or issue type."
+                    "Aggregate customer feedback signals and categorize the main complaint, praise, and friction themes, "
+                    "with a simple view of spike areas by product, journey stage, or issue type."
                 ),
                 "why": (
                     "This turns unstructured data into immediate operational insight and helps prove that Snowflake can support more than standard BI use cases."
@@ -241,7 +255,8 @@ def generate_mvps(
             {
                 "title": "Conversion MVP: Opportunity and Friction Signals",
                 "scope": (
-                    "Create a focused conversion view that combines sales or funnel performance with customer behavior or sentiment indicators to highlight where the customer journey is underperforming."
+                    "Create a focused conversion view that combines sales or funnel performance with customer behavior or sentiment indicators "
+                    "to highlight where the customer journey is underperforming."
                 ),
                 "why": (
                     "This links data activation directly to growth outcomes and creates an executive-friendly narrative around measurable commercial impact."
@@ -257,7 +272,8 @@ def generate_mvps(
             {
                 "title": "Forecasting MVP: Demand Signal Starter",
                 "scope": (
-                    "Create an initial planning dataset that combines recent sales, seasonality indicators, inventory position, and key customer signals to support a more reliable short-horizon demand view."
+                    "Create an initial planning dataset that combines recent sales, seasonality indicators, inventory position, "
+                    "and key customer signals to support a more reliable short-horizon demand view."
                 ),
                 "why": (
                     "Forecasting is a natural extension of trusted data consolidation and creates a bridge to more advanced planning use cases."
@@ -324,9 +340,9 @@ def generate_roadmap(
             "Agreed MVP definitions, owners, and success measures.",
         ],
         "teams": [
-            "Data / analytics engineering",
+            "Data and analytics engineering",
             "Business stakeholders for the selected use cases",
-            "Platform / architecture owners",
+            "Platform and architecture owners",
         ],
     }
 
@@ -345,7 +361,7 @@ def generate_roadmap(
             "Adoption guidance for the initial user groups.",
         ],
         "teams": [
-            "Analytics / BI users",
+            "Analytics and BI users",
             "Operational stakeholders tied to the MVPs",
             "Data engineering and platform teams",
         ],
@@ -368,16 +384,22 @@ def generate_roadmap(
         "teams": [
             "Customer data team",
             "Business sponsors",
-            "Account team / customer success counterparts",
+            "Account team and customer success counterparts",
         ],
     }
 
     if industry == "Retail":
-        days_1_30["deliverables"].append("Baseline inventory, demand, and customer-signal views for rapid commercial prioritization.")
-        days_31_60["deliverables"].append("Operational stockout, sentiment, or conversion MVPs ready for stakeholder review.")
+        days_1_30["deliverables"].append(
+            "Baseline inventory, demand, and customer-signal views for rapid commercial prioritization."
+        )
+        days_31_60["deliverables"].append(
+            "Operational stockout, sentiment, or conversion MVPs ready for stakeholder review."
+        )
 
     if unstructured_data:
-        days_31_60["objectives"].append("Introduce text or feedback signal processing where it supports the selected MVPs.")
+        days_31_60["objectives"].append(
+            "Introduce text or feedback signal processing where it supports the selected MVPs."
+        )
 
     if priorities:
         days_61_90["objectives"].append(
@@ -394,7 +416,8 @@ def generate_handover(fiscal_timing: str) -> str:
             "quick-win evidence, and a realistic prioritization of what must happen next versus what can wait."
         ),
         "Good time left in fiscal year": (
-            "Because the customer has room left in the fiscal cycle, the handover can balance short-term wins with a cleaner path to the next wave of platform and use-case expansion."
+            "Because the customer has room left in the fiscal cycle, the handover can balance short-term wins "
+            "with a cleaner path to the next wave of platform and use-case expansion."
         ),
     }.get(
         fiscal_timing,
@@ -528,6 +551,202 @@ def generate_agent_templates(
     return agents[:3]
 
 
+def clean_markdown_for_pdf(text: str) -> str:
+    text = re.sub(r"`([^`]*)`", r"\1", text)
+    text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
+    text = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", text)
+    text = text.replace("&", "&amp;")
+    text = text.replace("<b>", "%%B%%").replace("</b>", "%%/B%%")
+    text = text.replace("<i>", "%%I%%").replace("</i>", "%%/I%%")
+    text = text.replace("<", "&lt;").replace(">", "&gt;")
+    text = text.replace("%%B%%", "<b>").replace("%%/B%%", "</b>")
+    text = text.replace("%%I%%", "<i>").replace("%%/I%%", "</i>")
+    return text
+
+
+def build_pdf_bytes(
+    customer_name: str,
+    industry: str,
+    data_sources: list[str],
+    bi_tool: str,
+    refresh_cadence: str,
+    priorities: list[str],
+    unstructured_data: list[str],
+    fiscal_timing: str,
+    additional_context: str,
+    summary: str,
+    architecture: str,
+    mvps: list[dict[str, Any]],
+    roadmap: list[dict[str, Any]],
+    handover: str,
+    agents: list[dict[str, Any]],
+    enhanced_output: str | None = None,
+) -> bytes:
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=18 * mm,
+        rightMargin=18 * mm,
+        topMargin=22 * mm,
+        bottomMargin=18 * mm,
+        title=f"AI Activation Plan - {customer_name}",
+        author="AI Activation Copilot",
+    )
+
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle(
+        "Title",
+        parent=styles["Title"],
+        fontName="Helvetica-Bold",
+        fontSize=22,
+        leading=28,
+        textColor=colors.HexColor("#16324f"),
+        alignment=TA_LEFT,
+        spaceAfter=14,
+    )
+
+    sub_style = ParagraphStyle(
+        "SubStyle",
+        parent=styles["Normal"],
+        fontName="Helvetica",
+        fontSize=10.5,
+        leading=14,
+        textColor=colors.HexColor("#5b6b7a"),
+        spaceAfter=8,
+    )
+
+    section_style = ParagraphStyle(
+        "Section",
+        parent=styles["Heading1"],
+        fontName="Helvetica-Bold",
+        fontSize=14,
+        leading=18,
+        textColor=colors.HexColor("#2596be"),
+        spaceBefore=14,
+        spaceAfter=8,
+    )
+
+    subhead_style = ParagraphStyle(
+        "Subhead",
+        parent=styles["Heading2"],
+        fontName="Helvetica-Bold",
+        fontSize=11.5,
+        leading=15,
+        textColor=colors.HexColor("#16324f"),
+        spaceBefore=8,
+        spaceAfter=6,
+    )
+
+    body_style = ParagraphStyle(
+        "Body",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=10,
+        leading=15,
+        textColor=colors.HexColor("#243746"),
+        spaceAfter=6,
+    )
+
+    story: list[Any] = []
+
+    def add_paragraphs(text: str) -> None:
+        paragraphs = [p.strip() for p in text.split("\n\n") if p.strip()]
+        for paragraph in paragraphs:
+            story.append(Paragraph(clean_markdown_for_pdf(paragraph).replace("\n", "<br/>"), body_style))
+
+    def add_bullets(items: list[str]) -> None:
+        if not items:
+            return
+        story.append(
+            ListFlowable(
+                [ListItem(Paragraph(clean_markdown_for_pdf(i), body_style)) for i in items],
+                bulletType="bullet",
+                leftIndent=14,
+            )
+        )
+        story.append(Spacer(1, 6))
+
+    story.append(Paragraph("AI Activation Copilot", title_style))
+    story.append(Paragraph(f"{customer_name} – {industry} – 90-Day Activation Blueprint", sub_style))
+    story.append(Paragraph("Prepared for customer discussion and activation planning", sub_style))
+    story.append(Spacer(1, 6))
+
+    story.append(Paragraph("Customer Inputs", section_style))
+    add_bullets(
+        [
+            f"Industry: {industry}",
+            f"Primary data sources: {_fmt_list(data_sources)}",
+            f"Primary BI tool: {bi_tool}",
+            f"Operational refresh cadence: {refresh_cadence}",
+            f"Unstructured data available: {_fmt_list(unstructured_data)}",
+            f"Business priorities: {_fmt_list(priorities)}",
+            f"Fiscal timing: {fiscal_timing}",
+        ]
+    )
+
+    if additional_context.strip():
+        story.append(Paragraph("Discovery Notes for AI Refinement", section_style))
+        add_paragraphs(additional_context)
+        story.append(Spacer(1, 4))
+
+    story.append(Paragraph("Activation Summary", section_style))
+    add_paragraphs(summary)
+
+    story.append(Paragraph("Recommended Architecture", section_style))
+    add_paragraphs(architecture)
+
+    story.append(Paragraph("Thin-Slice MVPs", section_style))
+    if mvps:
+        for mvp in mvps:
+            story.append(Paragraph(clean_markdown_for_pdf(mvp["title"]), subhead_style))
+            add_bullets(
+                [
+                    f"Scope: {mvp['scope']}",
+                    f"Why first: {mvp['why']}",
+                    f"Business outcome: {mvp['outcome']}",
+                ]
+            )
+    else:
+        story.append(Paragraph("No MVPs generated.", body_style))
+
+    story.append(Paragraph("30-60-90 Activation Plan", section_style))
+    for phase in roadmap:
+        story.append(Paragraph(clean_markdown_for_pdf(phase["phase"]), subhead_style))
+        items: list[str] = []
+        items.extend([f"Objective: {item}" for item in phase["objectives"]])
+        items.extend([f"Deliverable: {item}" for item in phase["deliverables"]])
+        items.extend([f"Team impacted: {item}" for item in phase["teams"]])
+        add_bullets(items)
+
+    story.append(Paragraph("Day 90 Handover", section_style))
+    add_paragraphs(handover)
+
+    story.append(Paragraph("Suggested Agent Templates", section_style))
+    if agents:
+        for agent in agents:
+            story.append(Paragraph(clean_markdown_for_pdf(agent["name"]), subhead_style))
+            add_bullets(
+                [
+                    f"Purpose: {agent['purpose']}",
+                    f"Inputs: {', '.join(agent['inputs'])}",
+                    f"Pattern: {agent['pattern']}",
+                ]
+            )
+    else:
+        story.append(Paragraph("No agent templates generated.", body_style))
+
+    if enhanced_output:
+        story.append(Paragraph("AI-Enhanced Activation Blueprint", section_style))
+        add_paragraphs(enhanced_output)
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
 def _serialize_for_prompt(value: Any) -> str:
     try:
         return json.dumps(value, indent=2, ensure_ascii=False)
@@ -570,13 +789,13 @@ Requirements:
 
 Use the following exact structure:
 
-## Executive framing
+## Executive Framing
 A concise paragraph explaining what the customer needs and how the activation should be framed.
 
-## Recommended activation posture
+## Recommended Activation Posture
 3-5 bullets.
 
-## Refined MVP recommendations
+## Refined MVP Recommendations
 For each MVP, provide:
 ### [MVP name]
 - What to deliver
@@ -584,16 +803,16 @@ For each MVP, provide:
 - Risk or dependency
 - Success metric
 
-## Key delivery risks and mitigations
+## Key Delivery Risks and Mitigations
 4-6 bullets.
 
-## Day 90 success measures
+## Day 90 Success Measures
 4-6 bullets.
 
-## Customer talk track
+## Customer Talk Track
 A short set of bullets that an account engineer could say to the customer.
 
-## Recommended next-step expansion
+## Recommended Next-Step Expansion
 A concise paragraph on what should come after the initial 90 days.
 """
 
@@ -630,7 +849,7 @@ Draft agent templates:
 """
 
     response = client.responses.create(
-        model="gpt-4o-mini",
+        model="gpt-4.1-mini",
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
