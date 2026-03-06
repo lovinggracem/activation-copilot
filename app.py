@@ -32,16 +32,18 @@ st.markdown(
         margin-bottom: 1rem;
     }
 
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+    /* Fjord blue buttons */
+    .stButton > button[kind="primary"] {
+        background-color: #2596be !important;
+        border-color: #2596be !important;
+        color: white !important;
     }
 
-    .stTabs [data-baseweb="tab"] {
-        height: 44px;
-        border-radius: 12px;
-        padding-left: 16px;
-        padding-right: 16px;
+    .stButton > button[kind="primary"]:hover {
+        background-color: #1f84a7 !important;
+        border-color: #1f84a7 !important;
     }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -56,10 +58,8 @@ if "plan_generated" not in st.session_state:
 if "enhanced_output" not in st.session_state:
     st.session_state.enhanced_output = None
 
-if "last_plan_signature" not in st.session_state:
-    st.session_state.last_plan_signature = None
-
 with st.sidebar:
+
     st.header("Customer Inputs")
 
     customer_name = st.text_input("Customer name", value="RetailCo")
@@ -116,144 +116,131 @@ with st.sidebar:
     if st.button("Generate Activation Plan", type="primary", use_container_width=True):
         st.session_state.plan_generated = True
 
+
 if not st.session_state.plan_generated:
+
     st.markdown(
         """
         <div class="hero-card">
-            <h4 style="margin-top:0;">How it works</h4>
-            <p style="margin-bottom:0;">
-                Enter discovery inputs in the sidebar, then click <b>Generate Activation Plan</b>.
-                The copilot will produce a customer summary, recommended architecture, thin-slice MVPs,
-                a 30-60-90 roadmap, handover guidance, and agent ideas.
-            </p>
+        <h4>How it works</h4>
+        Enter discovery inputs and generate a full 90-day Snowflake activation plan.
         </div>
         """,
         unsafe_allow_html=True,
     )
+
     st.stop()
 
+
 summary = generate_activation_summary(
-    customer_name=customer_name,
-    industry=industry,
-    data_sources=data_sources,
-    bi_tool=bi_tool,
-    refresh_cadence=refresh_cadence,
-    priorities=priorities,
-    unstructured_data=unstructured_data,
+    customer_name,
+    industry,
+    data_sources,
+    bi_tool,
+    refresh_cadence,
+    priorities,
+    unstructured_data,
 )
 
 architecture = generate_architecture(
-    industry=industry,
-    data_sources=data_sources,
-    refresh_cadence=refresh_cadence,
-    bi_tool=bi_tool,
-    unstructured_data=unstructured_data,
+    industry,
+    data_sources,
+    refresh_cadence,
+    bi_tool,
+    unstructured_data,
 )
 
 mvps = generate_mvps(
-    industry=industry,
-    priorities=priorities,
-    unstructured_data=unstructured_data,
+    industry,
+    priorities,
+    unstructured_data,
 )
 
 roadmap = generate_roadmap(
-    industry=industry,
-    priorities=priorities,
-    refresh_cadence=refresh_cadence,
-    unstructured_data=unstructured_data,
+    industry,
+    priorities,
+    refresh_cadence,
+    unstructured_data,
 )
 
-handover = generate_handover(fiscal_timing=fiscal_timing)
+handover = generate_handover(fiscal_timing)
 
 agents = generate_agent_templates(
-    industry=industry,
-    priorities=priorities,
-)
-
-plan_signature = (
-    customer_name,
     industry,
-    tuple(sorted(data_sources)),
-    bi_tool,
-    refresh_cadence,
-    tuple(sorted(unstructured_data)),
-    tuple(sorted(priorities)),
-    fiscal_timing,
+    priorities,
 )
-
-if st.session_state.last_plan_signature != plan_signature:
-    st.session_state.enhanced_output = None
-    st.session_state.last_plan_signature = plan_signature
-
-m1, m2, m3, m4 = st.columns(4)
-m1.metric("Industry", industry)
-m2.metric("BI Tool", bi_tool)
-m3.metric("Refresh", refresh_cadence)
-m4.metric("Priority Count", len(priorities))
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["Overview", "Thin-Slice MVPs", "30-60-90 Plan", "Handover & Agents"]
 )
 
 with tab1:
-    left, right = st.columns([1, 1])
 
-    with left:
+    col1, col2 = st.columns(2)
+
+    with col1:
         st.subheader("Activation Summary")
         st.markdown(summary)
 
-    with right:
+    with col2:
         st.subheader("Recommended Architecture")
         st.markdown(architecture)
 
+
 with tab2:
+
     st.subheader("Thin-Slice MVPs")
 
-    if mvps:
-        for mvp in mvps:
-            with st.expander(mvp["title"], expanded=True):
-                st.markdown(f"**Scope:** {mvp['scope']}")
-                st.markdown(f"**Why first:** {mvp['why']}")
-                st.markdown(f"**Business outcome:** {mvp['outcome']}")
-    else:
-        st.warning("No MVPs were generated. Select at least one business priority.")
+    for mvp in mvps:
+        with st.expander(mvp["title"], expanded=True):
+
+            st.markdown(f"**Scope:** {mvp['scope']}")
+            st.markdown(f"**Why first:** {mvp['why']}")
+            st.markdown(f"**Outcome:** {mvp['outcome']}")
+
 
 with tab3:
-    st.subheader("30-60-90 Activation Plan")
+
+    st.subheader("30-60-90 Plan")
 
     for phase in roadmap:
+
         with st.expander(phase["phase"], expanded=True):
+
             st.markdown("**Objectives**")
-            for item in phase["objectives"]:
-                st.markdown(f"- {item}")
+
+            for o in phase["objectives"]:
+                st.markdown(f"- {o}")
 
             st.markdown("**Deliverables**")
-            for item in phase["deliverables"]:
-                st.markdown(f"- {item}")
 
-            st.markdown("**Customer teams impacted**")
-            for item in phase["teams"]:
-                st.markdown(f"- {item}")
+            for d in phase["deliverables"]:
+                st.markdown(f"- {d}")
+
 
 with tab4:
-    left, right = st.columns([1, 1])
 
-    with left:
+    col1, col2 = st.columns(2)
+
+    with col1:
         st.subheader("Day 90 Handover")
         st.markdown(handover)
 
-    with right:
-        st.subheader("Suggested Agent Templates")
-        if agents:
-            for agent in agents:
-                with st.expander(agent["name"], expanded=False):
-                    st.markdown(f"**Purpose:** {agent['purpose']}")
-                    st.markdown("**Inputs:**")
-                    for item in agent["inputs"]:
-                        st.markdown(f"- {item}")
-                    st.markdown(f"**Pattern:** {agent['pattern']}")
-        else:
-            st.info("No agent templates were generated for the selected priorities.")
+    with col2:
+        st.subheader("Agent Templates")
+
+        for agent in agents:
+            with st.expander(agent["name"]):
+
+                st.markdown(f"**Purpose:** {agent['purpose']}")
+
+                st.markdown("**Inputs**")
+
+                for i in agent["inputs"]:
+                    st.markdown(f"- {i}")
+
+                st.markdown(f"**Pattern:** {agent['pattern']}")
+
 
 st.divider()
 st.subheader("AI Enhancement")
@@ -261,42 +248,78 @@ st.subheader("AI Enhancement")
 try:
     openai_api_key = st.secrets["OPENAI_API_KEY"]
     ai_key_available = True
-except Exception:
-    openai_api_key = None
+except:
     ai_key_available = False
 
-if not ai_key_available:
-    st.info("Add OPENAI_API_KEY in Streamlit secrets to enable AI enhancement.")
 
-if st.button("Enhance with AI", use_container_width=True, disabled=not ai_key_available):
-    try:
-        with st.spinner("Generating AI-enhanced activation blueprint..."):
-            st.session_state.enhanced_output = enhance_plan_with_llm(
-                api_key=openai_api_key,
-                customer_name=customer_name,
-                industry=industry,
-                data_sources=data_sources,
-                bi_tool=bi_tool,
-                refresh_cadence=refresh_cadence,
-                priorities=priorities,
-                unstructured_data=unstructured_data,
-                fiscal_timing=fiscal_timing,
-                summary=summary,
-                architecture=architecture,
-                mvps=mvps,
-                roadmap=roadmap,
-                handover=handover,
-                agents=agents,
-            )
-    except Exception as e:
-        st.error(f"AI enhancement failed: {e}")
+if st.button("Enhance with AI", type="primary", use_container_width=True, disabled=not ai_key_available):
 
-if st.session_state.enhanced_output:
-    st.divider()
-    st.subheader("AI-Enhanced Activation Blueprint")
-    st.markdown(st.session_state.enhanced_output)
+    with st.spinner("Generating AI enhanced plan..."):
+
+        st.session_state.enhanced_output = enhance_plan_with_llm(
+            openai_api_key,
+            customer_name,
+            industry,
+            data_sources,
+            bi_tool,
+            refresh_cadence,
+            priorities,
+            unstructured_data,
+            fiscal_timing,
+            summary,
+            architecture,
+            mvps,
+            roadmap,
+            handover,
+            agents,
+        )
+
+
+# Build export text
+
+plan_text = f"""
+
+# AI Activation Plan
+
+## Activation Summary
+{summary}
+
+## Architecture
+{architecture}
+
+## MVPs
+{mvps}
+
+## Roadmap
+{roadmap}
+
+## Handover
+{handover}
+
+"""
+
 
 st.divider()
-st.caption(
-    "This prototype generates a deterministic activation blueprint first, then optionally uses an LLM to add sharper recommendations, risks, success metrics, and a customer talk track."
+st.subheader("Download Plan")
+
+st.download_button(
+    label="Download Activation Plan",
+    data=plan_text,
+    file_name="activation_plan.md",
+    mime="text/markdown",
 )
+
+
+if st.session_state.enhanced_output:
+
+    st.divider()
+    st.subheader("AI Enhanced Blueprint")
+
+    st.markdown(st.session_state.enhanced_output)
+
+    st.download_button(
+        label="Download AI Enhanced Plan",
+        data=st.session_state.enhanced_output,
+        file_name="activation_plan_ai.md",
+        mime="text/markdown",
+    )
