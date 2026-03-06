@@ -201,10 +201,8 @@ st.markdown(
 
 
 def render_markdown_in_card(title: str, body: str) -> None:
-    st.markdown('<div class="content-card">', unsafe_allow_html=True)
-    st.markdown(f"### {title}")
+    st.subheader(title)
     st.markdown(body)
-    st.markdown("</div>", unsafe_allow_html=True)
 
 
 st.title("AI Activation Copilot")
