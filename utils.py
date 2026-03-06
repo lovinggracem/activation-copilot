@@ -630,7 +630,7 @@ Draft agent templates:
 """
 
     response = client.responses.create(
-        model="gpt-5.1-mini",
+        model="gpt-4o-mini",
         input=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
