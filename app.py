@@ -33,6 +33,7 @@ st.set_page_config(
     layout="wide",
 )
 
+
 st.markdown(
     f"""
     <style>
@@ -42,7 +43,7 @@ st.markdown(
 
     .block-container {{
         max-width: 1240px;
-        padding-top: 1.5rem;
+        padding-top: 1.25rem;
         padding-bottom: 2rem;
     }}
 
@@ -52,7 +53,7 @@ st.markdown(
     }}
 
     section[data-testid="stSidebar"] .block-container {{
-        padding-top: 1.2rem;
+        padding-top: 1rem;
     }}
 
     h1, h2, h3, h4, h5, h6 {{
@@ -65,7 +66,7 @@ st.markdown(
     }}
 
     .hero-card {{
-        padding: 1.3rem 1.4rem;
+        padding: 1.35rem 1.4rem;
         border: 1px solid {BORDER};
         border-radius: 20px;
         background: linear-gradient(135deg, #ffffff 0%, #f8fbfd 100%);
@@ -73,12 +74,18 @@ st.markdown(
         margin-bottom: 1rem;
     }}
 
-    .section-card {{
-        padding: 1rem 1.1rem;
+    .content-card {{
+        background: {CARD_BG};
         border: 1px solid {BORDER};
         border-radius: 18px;
-        background: {CARD_BG};
-        box-shadow: 0 6px 20px rgba(15, 23, 42, 0.04);
+        padding: 1.2rem 1.2rem 0.9rem 1.2rem;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+        margin-bottom: 1rem;
+    }}
+
+    .content-card h3 {{
+        margin-top: 0;
+        margin-bottom: 0.8rem;
     }}
 
     div[data-testid="metric-container"] {{
@@ -104,7 +111,7 @@ st.markdown(
         border-radius: 14px;
         padding-left: 16px;
         padding-right: 16px;
-        background: rgba(255,255,255,0.6);
+        background: rgba(255,255,255,0.7);
         border: 1px solid {BORDER};
     }}
 
@@ -179,6 +186,12 @@ st.markdown(
         background: white !important;
     }}
 
+    .stTextArea textarea {{
+        border-radius: 14px !important;
+        border: 1px solid {BORDER} !important;
+        background: white !important;
+    }}
+
     .download-card {{
         padding: 1rem 1.1rem;
         border: 1px solid {BORDER};
@@ -191,6 +204,15 @@ st.markdown(
         color: {MUTED};
         font-size: 0.92rem;
     }}
+
+    .card-title {{
+        font-weight: 700;
+        margin-bottom: 0.35rem;
+    }}
+
+    .no-anchor a {{
+        display: none !important;
+    }}
     </style>
     """,
     unsafe_allow_html=True,
@@ -201,7 +223,8 @@ def clean_markdown_for_pdf(text: str) -> str:
     text = re.sub(r"`([^`]*)`", r"\1", text)
     text = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", text)
     text = re.sub(r"\*([^*]+)\*", r"<i>\1</i>", text)
-    text = text.replace("&", "&amp;").replace("<b>", "%%B%%").replace("</b>", "%%/B%%")
+    text = text.replace("&", "&amp;")
+    text = text.replace("<b>", "%%B%%").replace("</b>", "%%/B%%")
     text = text.replace("<i>", "%%I%%").replace("</i>", "%%/I%%")
     text = text.replace("<", "&lt;").replace(">", "&gt;")
     text = text.replace("%%B%%", "<b>").replace("%%/B%%", "</b>")
@@ -228,84 +251,11 @@ def paragraph_blocks(text: str):
     return blocks
 
 
-def build_plan_markdown(
-    customer_name,
-    industry,
-    data_sources,
-    bi_tool,
-    refresh_cadence,
-    priorities,
-    unstructured_data,
-    fiscal_timing,
-    summary,
-    architecture,
-    mvps,
-    roadmap,
-    handover,
-    agents,
-):
-    lines = []
-    lines.append(f"# AI Activation Plan - {customer_name}")
-    lines.append("")
-    lines.append("## Customer Inputs")
-    lines.append(f"- Industry: {industry}")
-    lines.append(f"- Primary data sources: {', '.join(data_sources) if data_sources else 'None selected'}")
-    lines.append(f"- Primary BI tool: {bi_tool}")
-    lines.append(f"- Operational refresh cadence: {refresh_cadence}")
-    lines.append(f"- Unstructured data available: {', '.join(unstructured_data) if unstructured_data else 'None selected'}")
-    lines.append(f"- Business priorities: {', '.join(priorities) if priorities else 'None selected'}")
-    lines.append(f"- Fiscal timing: {fiscal_timing}")
-    lines.append("")
-    lines.append("## Activation Summary")
-    lines.append(summary)
-    lines.append("")
-    lines.append("## Recommended Architecture")
-    lines.append(architecture)
-    lines.append("")
-    lines.append("## Thin-Slice MVPs")
-    if mvps:
-        for mvp in mvps:
-            lines.append(f"### {mvp['title']}")
-            lines.append(f"- Scope: {mvp['scope']}")
-            lines.append(f"- Why first: {mvp['why']}")
-            lines.append(f"- Business outcome: {mvp['outcome']}")
-            lines.append("")
-    else:
-        lines.append("No MVPs generated.")
-        lines.append("")
-
-    lines.append("## 30-60-90 Activation Plan")
-    for phase in roadmap:
-        lines.append(f"### {phase['phase']}")
-        lines.append("Objectives:")
-        for item in phase["objectives"]:
-            lines.append(f"- {item}")
-        lines.append("Deliverables:")
-        for item in phase["deliverables"]:
-            lines.append(f"- {item}")
-        lines.append("Customer teams impacted:")
-        for item in phase["teams"]:
-            lines.append(f"- {item}")
-        lines.append("")
-
-    lines.append("## Day 90 Handover")
-    lines.append(handover)
-    lines.append("")
-    lines.append("## Suggested Agent Templates")
-    if agents:
-        for agent in agents:
-            lines.append(f"### {agent['name']}")
-            lines.append(f"- Purpose: {agent['purpose']}")
-            lines.append("- Inputs:")
-            for item in agent["inputs"]:
-                lines.append(f"  - {item}")
-            lines.append(f"- Pattern: {agent['pattern']}")
-            lines.append("")
-    else:
-        lines.append("No agent templates generated.")
-        lines.append("")
-
-    return "\n".join(lines)
+def render_markdown_in_card(title: str, body: str):
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    st.markdown(f"### {title}")
+    st.markdown(body)
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def build_pdf_bytes(
@@ -317,6 +267,7 @@ def build_pdf_bytes(
     priorities,
     unstructured_data,
     fiscal_timing,
+    additional_context,
     summary,
     architecture,
     mvps,
@@ -332,7 +283,7 @@ def build_pdf_bytes(
         pagesize=A4,
         leftMargin=18 * mm,
         rightMargin=18 * mm,
-        topMargin=18 * mm,
+        topMargin=20 * mm,
         bottomMargin=18 * mm,
         title=f"AI Activation Plan - {customer_name}",
         author="AI Activation Copilot",
@@ -348,7 +299,7 @@ def build_pdf_bytes(
         leading=28,
         textColor=colors.HexColor("#16324f"),
         alignment=TA_LEFT,
-        spaceAfter=10,
+        spaceAfter=8,
     )
 
     sub_style = ParagraphStyle(
@@ -370,7 +321,6 @@ def build_pdf_bytes(
         textColor=colors.HexColor(BRAND_BLUE),
         spaceBefore=10,
         spaceAfter=8,
-        borderPadding=0,
     )
 
     h2 = ParagraphStyle(
@@ -404,13 +354,9 @@ def build_pdf_bytes(
     )
 
     story = []
+
     story.append(Paragraph("AI Activation Copilot", title_style))
-    story.append(
-        Paragraph(
-            f"{customer_name} - {industry} - 90-Day Activation Blueprint",
-            sub_style,
-        )
-    )
+    story.append(Paragraph(f"{customer_name} - {industry} - 90-Day Activation Blueprint", sub_style))
 
     story.append(Paragraph("Customer Inputs", h1))
     inputs = [
@@ -426,11 +372,16 @@ def build_pdf_bytes(
         ListFlowable(
             [ListItem(Paragraph(clean_markdown_for_pdf(item), bullet_style)) for item in inputs],
             bulletType="bullet",
-            start="circle",
             leftIndent=14,
         )
     )
     story.append(Spacer(1, 8))
+
+    if additional_context.strip():
+        story.append(Paragraph("Discovery Notes for AI Refinement", h1))
+        for block in paragraph_blocks(additional_context):
+            story.append(Paragraph(clean_markdown_for_pdf(block).replace("\n", "<br/>"), body))
+        story.append(Spacer(1, 4))
 
     def add_text_section(title, text):
         story.append(Paragraph(title, h1))
@@ -464,7 +415,6 @@ def build_pdf_bytes(
     story.append(Paragraph("30-60-90 Activation Plan", h1))
     for phase in roadmap:
         story.append(Paragraph(clean_markdown_for_pdf(phase["phase"]), h2))
-
         phase_items = []
         phase_items.extend([f"<b>Objective:</b> {item}" for item in phase["objectives"]])
         phase_items.extend([f"<b>Deliverable:</b> {item}" for item in phase["deliverables"]])
@@ -521,13 +471,13 @@ if "enhanced_output" not in st.session_state:
 if "last_plan_signature" not in st.session_state:
     st.session_state.last_plan_signature = None
 
+
 with st.sidebar:
     st.header("Customer Inputs")
-
     st.markdown(
         """
         <div class="mini-note">
-        Capture a customer’s current landscape, priorities, and fiscal context, then generate a structured activation blueprint.
+        Capture the customer landscape, priorities, stakeholder context, and delivery constraints, then generate a structured activation blueprint.
         </div>
         """,
         unsafe_allow_html=True,
@@ -584,8 +534,20 @@ with st.sidebar:
         index=1,
     )
 
+    additional_context = st.text_area(
+        "Discovery notes for AI refinement",
+        value="",
+        height=140,
+        placeholder=(
+            "Example: Customer wants executive-visible value in 30 days. "
+            "Small data team. Legacy migration is politically sensitive. "
+            "Support tickets are messy and uncategorized."
+        ),
+    )
+
     if st.button("Generate Activation Plan", type="primary", use_container_width=True):
         st.session_state.plan_generated = True
+
 
 if not st.session_state.plan_generated:
     st.markdown(
@@ -593,18 +555,19 @@ if not st.session_state.plan_generated:
         <div class="hero-card">
             <h3 style="margin-top:0; margin-bottom:0.4rem;">Build a customer-ready activation plan</h3>
             <p style="margin-bottom:0.6rem; color:#475467;">
-                Enter discovery inputs in the sidebar, then generate a deterministic activation blueprint.
-                You can optionally enhance it with AI and export the result as a PDF.
+                Enter discovery inputs in the sidebar, generate a deterministic activation blueprint,
+                then optionally refine it with AI using richer customer notes.
             </p>
             <p style="margin-bottom:0; color:#667085;">
-                Includes: customer summary, architecture recommendation, thin-slice MVPs, 30-60-90 roadmap,
-                handover guidance, and agent ideas.
+                Includes customer summary, architecture recommendation, thin-slice MVPs, 30-60-90 roadmap,
+                handover guidance, agent ideas, and export to PDF.
             </p>
         </div>
         """,
         unsafe_allow_html=True,
     )
     st.stop()
+
 
 summary = generate_activation_summary(
     customer_name=customer_name,
@@ -653,11 +616,13 @@ plan_signature = (
     tuple(sorted(unstructured_data)),
     tuple(sorted(priorities)),
     fiscal_timing,
+    additional_context,
 )
 
 if st.session_state.last_plan_signature != plan_signature:
     st.session_state.enhanced_output = None
     st.session_state.last_plan_signature = plan_signature
+
 
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Industry", industry)
@@ -670,23 +635,14 @@ tab1, tab2, tab3, tab4 = st.tabs(
 )
 
 with tab1:
-    left, right = st.columns([1, 1])
-
+    left, right = st.columns(2)
     with left:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        st.subheader("Activation Summary")
-        st.markdown(summary)
-        st.markdown("</div>", unsafe_allow_html=True)
-
+        render_markdown_in_card("Activation Summary", summary)
     with right:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        st.subheader("Recommended Architecture")
-        st.markdown(architecture)
-        st.markdown("</div>", unsafe_allow_html=True)
+        render_markdown_in_card("Recommended Architecture", architecture)
 
 with tab2:
     st.subheader("Thin-Slice MVPs")
-
     if mvps:
         for mvp in mvps:
             with st.expander(mvp["title"], expanded=True):
@@ -698,7 +654,6 @@ with tab2:
 
 with tab3:
     st.subheader("30-60-90 Activation Plan")
-
     for phase in roadmap:
         with st.expander(phase["phase"], expanded=True):
             st.markdown("**Objectives**")
@@ -714,17 +669,12 @@ with tab3:
                 st.markdown(f"- {item}")
 
 with tab4:
-    left, right = st.columns([1, 1])
-
+    left, right = st.columns(2)
     with left:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        st.subheader("Day 90 Handover")
-        st.markdown(handover)
-        st.markdown("</div>", unsafe_allow_html=True)
-
+        render_markdown_in_card("Day 90 Handover", handover)
     with right:
-        st.markdown('<div class="section-card">', unsafe_allow_html=True)
-        st.subheader("Suggested Agent Templates")
+        st.markdown('<div class="content-card">', unsafe_allow_html=True)
+        st.markdown("### Suggested Agent Templates")
         if agents:
             for agent in agents:
                 with st.expander(agent["name"], expanded=False):
@@ -747,6 +697,9 @@ except Exception:
     openai_api_key = None
     ai_key_available = False
 
+if additional_context.strip():
+    st.info("Discovery notes will be included in the AI refinement prompt.")
+
 if not ai_key_available:
     st.info("Add OPENAI_API_KEY in Streamlit secrets to enable AI enhancement.")
 
@@ -763,6 +716,7 @@ if st.button("Enhance with AI", type="primary", use_container_width=True, disabl
                 priorities=priorities,
                 unstructured_data=unstructured_data,
                 fiscal_timing=fiscal_timing,
+                additional_context=additional_context,
                 summary=summary,
                 architecture=architecture,
                 mvps=mvps,
@@ -778,23 +732,6 @@ if st.session_state.enhanced_output:
     st.subheader("AI-Enhanced Activation Blueprint")
     st.markdown(st.session_state.enhanced_output)
 
-plan_markdown = build_plan_markdown(
-    customer_name=customer_name,
-    industry=industry,
-    data_sources=data_sources,
-    bi_tool=bi_tool,
-    refresh_cadence=refresh_cadence,
-    priorities=priorities,
-    unstructured_data=unstructured_data,
-    fiscal_timing=fiscal_timing,
-    summary=summary,
-    architecture=architecture,
-    mvps=mvps,
-    roadmap=roadmap,
-    handover=handover,
-    agents=agents,
-)
-
 plan_pdf = build_pdf_bytes(
     customer_name=customer_name,
     industry=industry,
@@ -804,6 +741,7 @@ plan_pdf = build_pdf_bytes(
     priorities=priorities,
     unstructured_data=unstructured_data,
     fiscal_timing=fiscal_timing,
+    additional_context=additional_context,
     summary=summary,
     architecture=architecture,
     mvps=mvps,
@@ -814,42 +752,31 @@ plan_pdf = build_pdf_bytes(
 )
 
 st.divider()
-st.subheader("Download Results")
+st.subheader("Export Customer Activation Blueprint")
 
 st.markdown(
     """
     <div class="download-card">
-        <div style="font-weight:700; margin-bottom:0.35rem;">Export your blueprint</div>
+        <div class="card-title">Download a customer-ready PDF</div>
         <div class="mini-note" style="margin-bottom:0.9rem;">
-            Download the full activation plan as a polished PDF, or grab the markdown version for easy editing.
+            Export the full blueprint including discovery inputs, deterministic plan content,
+            and any AI-refined output.
         </div>
     """,
     unsafe_allow_html=True,
 )
 
-d1, d2 = st.columns(2)
-
-with d1:
-    st.download_button(
-        label="Download Activation Plan (.pdf)",
-        data=plan_pdf,
-        file_name=f"{customer_name.lower().replace(' ', '_')}_activation_plan.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-    )
-
-with d2:
-    st.download_button(
-        label="Download Activation Plan (.md)",
-        data=plan_markdown,
-        file_name=f"{customer_name.lower().replace(' ', '_')}_activation_plan.md",
-        mime="text/markdown",
-        use_container_width=True,
-    )
+st.download_button(
+    label="Download Activation Plan (PDF)",
+    data=plan_pdf,
+    file_name=f"{customer_name.lower().replace(' ', '_')}_activation_plan.pdf",
+    mime="application/pdf",
+    use_container_width=True,
+)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
 st.divider()
 st.caption(
-    "This prototype generates a deterministic activation blueprint first, then optionally uses an LLM to add sharper recommendations, risks, success metrics, and a customer talk track."
+    "This prototype generates a deterministic activation blueprint first, then optionally uses an LLM to sharpen recommendations, risks, success metrics, and customer talk track using structured inputs plus discovery notes."
 )
