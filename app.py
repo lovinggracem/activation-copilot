@@ -32,14 +32,6 @@ st.markdown(
         margin-bottom: 1rem;
     }
 
-    .metric-card {
-        padding: 0.9rem 1rem;
-        border: 1px solid rgba(128,128,128,0.15);
-        border-radius: 14px;
-        background: rgba(255,255,255,0.02);
-        text-align: center;
-    }
-
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
     }
@@ -114,6 +106,12 @@ with st.sidebar:
 
     generate = st.button("Generate Activation Plan", type="primary", use_container_width=True)
 
+if "enhanced_output" not in st.session_state:
+    st.session_state.enhanced_output = None
+
+if "last_plan_signature" not in st.session_state:
+    st.session_state.last_plan_signature = None
+
 if not generate:
     st.markdown(
         """
@@ -155,6 +153,7 @@ mvps = generate_mvps(
 )
 
 roadmap = generate_roadmap(
+    industry=industry,
     priorities=priorities,
     refresh_cadence=refresh_cadence,
     unstructured_data=unstructured_data,
@@ -167,7 +166,21 @@ agents = generate_agent_templates(
     priorities=priorities,
 )
 
-# Top summary strip
+plan_signature = (
+    customer_name,
+    industry,
+    tuple(sorted(data_sources)),
+    bi_tool,
+    refresh_cadence,
+    tuple(sorted(unstructured_data)),
+    tuple(sorted(priorities)),
+    fiscal_timing,
+)
+
+if st.session_state.last_plan_signature != plan_signature:
+    st.session_state.enhanced_output = None
+    st.session_state.last_plan_signature = plan_signature
+
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("Industry", industry)
 m2.metric("BI Tool", bi_tool)
@@ -239,11 +252,14 @@ with tab4:
             st.info("No agent templates were generated for the selected priorities.")
 
 st.divider()
-
-# AI enhancement section
 st.subheader("AI Enhancement")
 
-ai_key_available = "OPENAI_API_KEY" in st.secrets
+try:
+    openai_api_key = st.secrets["OPENAI_API_KEY"]
+    ai_key_available = True
+except Exception:
+    openai_api_key = None
+    ai_key_available = False
 
 if not ai_key_available:
     st.info("Add OPENAI_API_KEY in Streamlit secrets to enable AI enhancement.")
@@ -251,8 +267,8 @@ if not ai_key_available:
 if st.button("Enhance with AI", use_container_width=True, disabled=not ai_key_available):
     try:
         with st.spinner("Generating AI-enhanced activation blueprint..."):
-            enhanced_output = enhance_plan_with_llm(
-                api_key=st.secrets["OPENAI_API_KEY"],
+            st.session_state.enhanced_output = enhance_plan_with_llm(
+                api_key=openai_api_key,
                 customer_name=customer_name,
                 industry=industry,
                 data_sources=data_sources,
@@ -268,13 +284,15 @@ if st.button("Enhance with AI", use_container_width=True, disabled=not ai_key_av
                 handover=handover,
                 agents=agents,
             )
-
-        st.markdown(enhanced_output)
-
     except Exception as e:
         st.error(f"AI enhancement failed: {e}")
 
+if st.session_state.enhanced_output:
+    st.divider()
+    st.subheader("AI-Enhanced Activation Blueprint")
+    st.markdown(st.session_state.enhanced_output)
+
 st.divider()
 st.caption(
-    "This prototype generates a deterministic activation blueprint first, then optionally uses an LLM to improve phrasing and presentation quality."
+    "This prototype generates a deterministic activation blueprint first, then optionally uses an LLM to add sharper recommendations, risks, success metrics, and a customer talk track."
 )
