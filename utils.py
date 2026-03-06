@@ -1,469 +1,640 @@
-from typing import List, Dict
+from __future__ import annotations
+
+import json
+from typing import Any
+
 from openai import OpenAI
+
+
+def _fmt_list(items: list[str]) -> str:
+    return ", ".join(items) if items else "None provided"
+
+
+def _bullets(items: list[str]) -> str:
+    return "\n".join(f"- {item}" for item in items)
+
+
+def _title_case_priority(priority: str) -> str:
+    return priority.strip()
 
 
 def generate_activation_summary(
     customer_name: str,
     industry: str,
-    data_sources: List[str],
+    data_sources: list[str],
     bi_tool: str,
     refresh_cadence: str,
-    priorities: List[str],
-    unstructured_data: List[str],
+    priorities: list[str],
+    unstructured_data: list[str],
 ) -> str:
-    industry_context = {
-        "Retail": "The activation should focus on inventory visibility, demand signals, promotion impact, and customer feedback loops.",
-        "Financial Services": "The activation should focus on governed analytics, risk visibility, operational reporting, and carefully controlled AI use cases.",
-        "Manufacturing": "The activation should focus on supply chain visibility, production signals, operational efficiency, and planning quality.",
-        "Healthcare": "The activation should focus on trusted governed data, reporting consistency, operational insight, and tightly scoped AI assistance.",
-        "Other": "The activation should focus on trusted data foundations, measurable business outcomes, and scoped AI-assisted workflows.",
+    priorities_text = _fmt_list(priorities)
+    sources_text = _fmt_list(data_sources)
+    unstructured_text = _fmt_list(unstructured_data)
+
+    industry_angle = {
+        "Retail": (
+            "The customer appears to be at a common retail inflection point: they have enough operational and "
+            "customer data to create value quickly, but not yet a unified way to turn that data into consistent "
+            "decisions across merchandising, inventory, support, and digital channels."
+        ),
+        "Financial Services": (
+            "The customer appears to be balancing growth, control, and time-to-insight. The likely challenge is "
+            "not data scarcity, but fragmented access to trusted data across analytical, operational, and customer-facing use cases."
+        ),
+        "Manufacturing": (
+            "The customer appears to be in a position where operational data exists across multiple systems, but "
+            "the business needs a clearer path from raw data to production, supply chain, and service decisions."
+        ),
+        "Healthcare": (
+            "The customer appears to be managing multiple data sources with a strong need for trust, governance, "
+            "and practical adoption, especially where operational decisions depend on timely and consistent insight."
+        ),
+        "Other": (
+            "The customer appears to have meaningful data assets already in place, but needs a practical activation "
+            "path that connects data consolidation to measurable business outcomes."
+        ),
+    }.get(industry, "")
+
+    priority_outcome = {
+        "Reduce stockouts": "improve product availability and reduce missed revenue from out-of-stock items",
+        "Improve customer sentiment insight": "surface customer pain points earlier and improve response quality",
+        "Increase conversion": "improve the quality and timing of customer-facing decisions that influence purchase behavior",
+        "Improve forecasting": "produce more confident demand and planning signals",
+        "Reduce support load": "help teams identify drivers of contact volume and reduce avoidable support effort",
+        "Improve promotion effectiveness": "improve promotional targeting, timing, and post-campaign understanding",
     }
 
-    cadence_implication = {
-        "Real-time": "This customer likely needs low-latency data movement for operational decisions.",
-        "15 minutes": "This customer likely needs near-real-time operational visibility without full streaming complexity.",
-        "Hourly": "This customer can support operational reporting with frequent refreshes and governed datasets.",
-        "Daily": "This customer is likely best suited to batch-oriented activation use cases first.",
-    }
+    mapped_outcomes = [priority_outcome[p] for p in priorities if p in priority_outcome]
+    outcome_sentence = (
+        "Near-term success should focus on using Snowflake to "
+        + ", ".join(mapped_outcomes[:-1])
+        + (", and " if len(mapped_outcomes) > 1 else "")
+        + (mapped_outcomes[-1] if mapped_outcomes else "create measurable business value quickly")
+        + "."
+    )
 
-    return f"""
-**Customer:** {customer_name}  
-**Industry:** {industry}  
-**Primary data sources:** {", ".join(data_sources) if data_sources else "Not specified"}  
-**BI environment:** {bi_tool}  
-**Operational cadence:** {refresh_cadence}  
-**Business priorities:** {", ".join(priorities) if priorities else "Not specified"}  
-**Unstructured data available:** {", ".join(unstructured_data) if unstructured_data else "None"}  
+    return f"""**Customer:** {customer_name}
 
-{industry_context.get(industry, industry_context["Other"])}
-{cadence_implication.get(refresh_cadence, "")}
+**Industry:** {industry}
 
-This activation plan is designed to deliver measurable value quickly while building an AI-ready Snowflake foundation.  
-The first goal is to create trusted data products for priority business decisions, then enable self-serve insight, then introduce scoped AI-assisted workflows.
-"""
+**Current landscape:** The customer is working with data from {sources_text} and currently relies on {bi_tool} for business reporting. The target operating cadence suggests the business wants data products that can support **{refresh_cadence.lower()}** decision-making rather than purely retrospective reporting.
 
+**Business priorities:** {priorities_text}
+
+**Available unstructured signals:** {unstructured_text}
+
+{industry_angle}
+
+From an activation perspective, the most practical first step is not trying to transform every part of the data estate at once. Instead, the customer should establish a trusted core data foundation in Snowflake, connect that foundation to a small number of high-visibility use cases, and prove value with thin-slice deliverables that the business can understand quickly.
+
+{outcome_sentence}
+
+A strong activation plan for this customer should therefore do three things in parallel: create trusted access to core data, deliver one or more business-visible MVPs, and build enough internal confidence that the customer can continue expanding after the initial 90-day engagement."""
+    
 
 def generate_architecture(
     industry: str,
-    data_sources: List[str],
+    data_sources: list[str],
     refresh_cadence: str,
     bi_tool: str,
-    unstructured_data: List[str],
+    unstructured_data: list[str],
 ) -> str:
-    industry_lines = {
-        "Retail": "- Prioritize inventory, sales, promotion, and customer-feedback data products.",
-        "Financial Services": "- Prioritize governed access controls, auditability, and risk-sensitive data domains.",
-        "Manufacturing": "- Prioritize supply chain, plant operations, inventory, and demand-planning data products.",
-        "Healthcare": "- Prioritize governance, sensitive-data controls, and trusted operational reporting layers.",
-        "Other": "- Prioritize the business domains most closely tied to measurable near-term value.",
-    }
+    source_ingestion = [
+        f"Ingest structured data from **{source}** into Snowflake through a repeatable landing and transformation pattern."
+        for source in data_sources
+    ] or ["Ingest priority business data into Snowflake through a repeatable landing and transformation pattern."]
 
-    ingestion_lines = []
-
-    if "MySQL" in data_sources:
-        ingestion_lines.append("- Use CDC ingestion for MySQL operational data.")
-    if "Postgres" in data_sources:
-        ingestion_lines.append("- Ingest Postgres operational data into Snowflake for trusted reporting.")
-    if "SQL Server" in data_sources:
-        ingestion_lines.append("- Replicate SQL Server data for analytics and operational reporting.")
-    if "Redshift" in data_sources:
-        ingestion_lines.append("- Use Redshift as a historical backfill source while Snowflake becomes the trusted analytics environment.")
-    if "BigQuery" in data_sources:
-        ingestion_lines.append("- Migrate selected analytical datasets from BigQuery into governed Snowflake data products.")
-    if "S3" in data_sources:
-        ingestion_lines.append("- Use staged ingestion for files and event data landing in S3.")
-    if "APIs" in data_sources:
-        ingestion_lines.append("- Ingest API-fed operational and partner signals on a scheduled basis.")
-    if "Salesforce" in data_sources:
-        ingestion_lines.append("- Ingest CRM and pipeline data from Salesforce for business-facing reporting.")
-
+    unstructured_layer = []
     if unstructured_data:
-        ingestion_lines.append("- Ingest unstructured sources as search-ready text collections with metadata.")
-    else:
-        ingestion_lines.append("- Start with structured data products first, then add text pipelines later if needed.")
+        unstructured_layer.append(
+            f"Bring unstructured sources into the platform as governed analytical assets, including **{_fmt_list(unstructured_data)}**."
+        )
+        unstructured_layer.append(
+            "Use document and text processing patterns so unstructured data can support sentiment, theme extraction, root-cause analysis, and agent experiences."
+        )
 
-    cadence_lines = {
-        "Real-time": "- Use low-latency ingestion patterns only for the highest-value operational signals.",
-        "15 minutes": "- Use frequent micro-batch ingestion to balance freshness and operational simplicity.",
-        "Hourly": "- Use hourly operational refreshes for decision support and reporting alignment.",
-        "Daily": "- Use scheduled batch pipelines with emphasis on reliability, data quality, and governance.",
-    }
+    cadence_guidance = {
+        "Real-time": "Design pipelines for near-real-time ingestion only where the use case truly needs it; avoid unnecessary complexity for lower-value domains.",
+        "15 minutes": "Use a frequent micro-batch pattern so the business can react quickly without overengineering for full streaming everywhere.",
+        "Hourly": "Use hourly refresh patterns for core data products, with tighter SLAs only for clearly justified operational workflows.",
+        "Daily": "Use daily refresh for foundational reporting and introduce faster refresh selectively for the most time-sensitive decisions.",
+    }.get(refresh_cadence, "Choose refresh patterns based on business urgency and operational value.")
 
-    return "\n".join(
+    industry_principles = {
+        "Retail": [
+            "Model around products, inventory positions, sales, channels, customers, and service events.",
+            "Prioritize inventory and demand visibility so commercial teams can act on emerging changes quickly.",
+        ],
+        "Financial Services": [
+            "Prioritize governed access, auditable transformations, and clear domain ownership.",
+            "Separate exploratory data use from controlled production-grade data products.",
+        ],
+        "Manufacturing": [
+            "Model around plants, production events, inventory, suppliers, logistics, and service signals.",
+            "Design for operational visibility and bottleneck identification across the supply chain.",
+        ],
+        "Healthcare": [
+            "Prioritize governance, lineage, and controlled access to sensitive or regulated data domains.",
+            "Focus early on high-trust curated data products for operational and analytical teams.",
+        ],
+        "Other": [
+            "Model key business entities in a way that supports both analytics and future AI use cases.",
+            "Keep the first architecture simple, governed, and expandable.",
+        ],
+    }.get(industry, [])
+
+    sections = [
+        "**Recommended architecture principles**",
+        "- Establish Snowflake as the governed data foundation for both analytics and future AI workloads.",
+        "- Create a clear path from raw ingestion to curated business-ready data products.",
+        f"- Keep {bi_tool} connected to Snowflake for continuity, while improving trust and freshness of the underlying data.",
+        f"- {cadence_guidance}",
+        "",
+        "**Suggested architecture flow**",
+        "- Source systems -> ingestion layer -> raw landing zone -> transformed domain models -> curated business marts -> BI, operational use cases, and AI applications.",
+        "- Introduce lightweight orchestration and data quality checks early so the first MVPs are trusted.",
+        "- Build semantic consistency across core entities before expanding to broader use cases.",
+        "",
+        "**Ingestion focus**",
+        _bullets(source_ingestion),
+    ]
+
+    if unstructured_layer:
+        sections.extend(["", "**Unstructured and AI-ready layer**", _bullets(unstructured_layer)])
+
+    if industry_principles:
+        sections.extend(["", "**Industry-specific emphasis**", _bullets(industry_principles)])
+
+    sections.extend(
         [
-            "**Recommended architecture principles**",
-            "- Keep data, AI, and governance in one platform.",
-            "- Use a Bronze / Silver / Gold medallion structure.",
-            "- Build AI-ready data products early, including business signals and text collections where available.",
-            "- Separate compute using INGEST_WH, TRANSFORM_WH, BI_WH, and AI_WH.",
-            industry_lines.get(industry, industry_lines["Other"]),
             "",
-            "**Ingestion approach**",
-            *ingestion_lines,
-            cadence_lines.get(refresh_cadence, ""),
-            f"- Continue serving business reporting through {bi_tool} while Snowflake adoption grows.",
+            "**Why this architecture first**",
+            "- It creates an immediate path to business value without requiring a full enterprise redesign.",
+            "- It keeps the customer’s existing BI motion intact while improving data trust.",
+            "- It sets up the customer for both near-term reporting wins and later AI expansion.",
         ]
     )
+
+    return "\n".join(sections)
 
 
 def generate_mvps(
     industry: str,
-    priorities: List[str],
-    unstructured_data: List[str],
-) -> List[Dict]:
-    mvps = []
+    priorities: list[str],
+    unstructured_data: list[str],
+) -> list[dict[str, str]]:
+    mvps: list[dict[str, str]] = []
+
+    has_reviews = "Product reviews" in unstructured_data
+    has_support = "Support tickets" in unstructured_data
+    has_returns = "Return reasons" in unstructured_data
+    has_chat = "Chat transcripts" in unstructured_data
+    has_emails = "Emails" in unstructured_data
 
     if "Reduce stockouts" in priorities:
-        scope = "Stockout risk list + recommended action, with human approval."
-        if industry == "Manufacturing":
-            scope = "Material or SKU shortage risk list + recommended planning action, with human approval."
         mvps.append(
             {
-                "title": "Inventory MVP",
-                "scope": scope,
-                "why": "Fast operational value, clear business owner, and realistic to deliver in 90 days.",
-                "outcome": "Protect revenue by catching stockout risk early and enabling faster replenishment decisions.",
+                "title": "Inventory MVP: Stockout Risk View",
+                "scope": (
+                    "Create a daily or intra-day inventory risk view that highlights fast-selling products, low cover positions, "
+                    "location/channel exposure, and a prioritized reorder or intervention list."
+                ),
+                "why": (
+                    "This is commercially visible, easy for the business to understand, and directly tied to revenue protection."
+                ),
+                "outcome": (
+                    "Merchandising and operations teams can identify likely stockouts earlier and take action before availability issues become customer-impacting."
+                ),
             }
         )
 
-    if "Improve customer sentiment insight" in priorities and unstructured_data:
+    if "Improve customer sentiment insight" in priorities:
+        evidence = []
+        if has_reviews:
+            evidence.append("product reviews")
+        if has_support:
+            evidence.append("support tickets")
+        if has_returns:
+            evidence.append("return reasons")
+        if has_chat:
+            evidence.append("chat transcripts")
+        if has_emails:
+            evidence.append("emails")
+
         mvps.append(
             {
-                "title": "Sentiment MVP",
-                "scope": "Complaint themes + supporting citations + spike alerts.",
-                "why": "Uses existing feedback data and turns disconnected text into decision-ready insight.",
-                "outcome": "Detect product issues early and reduce support load.",
+                "title": "Sentiment MVP: Customer Pain-Point Intelligence",
+                "scope": (
+                    "Aggregate customer feedback signals and categorize the main complaint, praise, and friction themes, with a simple view of spike areas by product, journey stage, or issue type."
+                ),
+                "why": (
+                    "This turns unstructured data into immediate operational insight and helps prove that Snowflake can support more than standard BI use cases."
+                ),
+                "outcome": (
+                    f"Support, product, and commercial teams can quickly see where customer experience is deteriorating using signals from {_fmt_list(evidence) if evidence else 'available customer feedback sources'}."
+                ),
             }
         )
 
     if "Increase conversion" in priorities:
         mvps.append(
             {
-                "title": "Recommendation MVP",
-                "scope": "Inventory-aware bundle suggestions delivered in batch, not real-time personalization.",
-                "why": "Commercially valuable but scoped tightly enough to be believable in a first activation window.",
-                "outcome": "Increase conversion and average order value without long ML cycles.",
+                "title": "Conversion MVP: Opportunity and Friction Signals",
+                "scope": (
+                    "Create a focused conversion view that combines sales or funnel performance with customer behavior or sentiment indicators to highlight where the customer journey is underperforming."
+                ),
+                "why": (
+                    "This links data activation directly to growth outcomes and creates an executive-friendly narrative around measurable commercial impact."
+                ),
+                "outcome": (
+                    "Commercial teams can identify specific journey friction points and prioritize the highest-impact opportunities to improve conversion."
+                ),
             }
         )
 
     if "Improve forecasting" in priorities:
         mvps.append(
             {
-                "title": "Forecasting MVP",
-                "scope": "Demand-risk view for planners using historical sales, promotions, and inventory context.",
-                "why": "Improves planning quality without needing a full advanced ML platform on day one.",
-                "outcome": "Better replenishment timing and fewer missed revenue opportunities.",
+                "title": "Forecasting MVP: Demand Signal Starter",
+                "scope": (
+                    "Create an initial planning dataset that combines recent sales, seasonality indicators, inventory position, and key customer signals to support a more reliable short-horizon demand view."
+                ),
+                "why": (
+                    "Forecasting is a natural extension of trusted data consolidation and creates a bridge to more advanced planning use cases."
+                ),
+                "outcome": (
+                    "Planning teams gain a more consistent baseline view of demand risk and can reduce reactive decision-making."
+                ),
             }
         )
 
-    if "Reduce support load" in priorities and unstructured_data:
+    if "Reduce support load" in priorities:
         mvps.append(
             {
-                "title": "Support Triage MVP",
-                "scope": "Categorize inbound support themes and identify recurring drivers.",
-                "why": "Creates immediate operational visibility from existing support content.",
-                "outcome": "Reduce manual triage effort and speed up issue identification.",
+                "title": "Support MVP: Contact Driver Analysis",
+                "scope": (
+                    "Classify and trend the major drivers of incoming support demand, with visibility into repeat issues, avoidable contacts, and escalation hotspots."
+                ),
+                "why": (
+                    "This is often quick to show value and demonstrates how structured plus unstructured data can improve operational efficiency."
+                ),
+                "outcome": (
+                    "Service leaders can see the main causes of contact volume and target the highest-value reduction opportunities."
+                ),
             }
         )
 
     if "Improve promotion effectiveness" in priorities:
         mvps.append(
             {
-                "title": "Promotion Effectiveness MVP",
-                "scope": "Measure promotion lift, margin impact, and inventory effect across campaigns.",
-                "why": "Directly ties data activation to commercial decision-making.",
-                "outcome": "Improve campaign quality and reduce wasted promotional spend.",
+                "title": "Promotion MVP: Campaign Performance and Response View",
+                "scope": (
+                    "Create a focused view of promotion performance by product, audience, timing, and outcome so the business can compare what worked and what did not."
+                ),
+                "why": (
+                    "This creates a clear commercial narrative and can often be delivered quickly from existing sales and campaign data."
+                ),
+                "outcome": (
+                    "Marketing and commercial teams can make more informed decisions about which promotions to scale, adjust, or stop."
+                ),
             }
         )
 
-    return mvps
+    return mvps[:3]
 
 
 def generate_roadmap(
     industry: str,
-    priorities: List[str],
+    priorities: list[str],
     refresh_cadence: str,
-    unstructured_data: List[str],
-) -> List[Dict]:
-    days_1_30_objectives = [
-        "Establish Snowflake as a trusted analytics environment for priority workloads.",
-        "Ingest core structured data quickly.",
-        "Stand up the first business-ready datasets tied to near-term value.",
-    ]
-    days_1_30_deliverables = [
-        "Landing zone setup with environments, RBAC, and warehouse structure.",
-        "Initial ingestion of core operational data sources.",
-        f"Operational ingestion aligned to {refresh_cadence}.",
-        "Validated business-ready datasets for first reporting use cases.",
-    ]
-    days_1_30_teams = ["Data engineering team", "Analytics team", "Business stakeholders"]
+    unstructured_data: list[str],
+) -> list[dict[str, Any]]:
+    days_1_30 = {
+        "phase": "Days 1-30: Foundation and First Value",
+        "objectives": [
+            "Confirm business success criteria, priority stakeholders, and decision-makers.",
+            "Land the first priority data domains in Snowflake and validate data access patterns.",
+            "Define the first thin-slice MVPs and align on what 'good' looks like.",
+            "Establish the basic governance, transformation, and quality controls needed for trust.",
+        ],
+        "deliverables": [
+            "Discovery readout and activation scope.",
+            "Initial source-to-Snowflake ingestion pattern.",
+            "Draft curated data model for first business use cases.",
+            "Agreed MVP definitions, owners, and success measures.",
+        ],
+        "teams": [
+            "Data / analytics engineering",
+            "Business stakeholders for the selected use cases",
+            "Platform / architecture owners",
+        ],
+    }
 
-    if "Reduce stockouts" in priorities:
-        days_1_30_objectives.append("Deliver early visibility into inventory risk and sales velocity.")
-        days_1_30_deliverables.extend(
-            [
-                "Inventory position and sales-velocity datasets.",
-                "Initial stockout-risk reporting for merchandising or supply chain teams.",
-            ]
+    days_31_60 = {
+        "phase": "Days 31-60: MVP Build and Operational Readiness",
+        "objectives": [
+            "Build and validate the first MVP data products.",
+            "Connect curated outputs to business workflows, reporting, or AI use cases.",
+            f"Operationalize data refresh patterns aligned to the target cadence of {refresh_cadence.lower()}.",
+            "Document assumptions, known risks, and next scaling decisions.",
+        ],
+        "deliverables": [
+            "Working MVP outputs for priority business use cases.",
+            "Validation sessions with business users and feedback loops.",
+            "Data quality checks and monitoring for critical flows.",
+            "Adoption guidance for the initial user groups.",
+        ],
+        "teams": [
+            "Analytics / BI users",
+            "Operational stakeholders tied to the MVPs",
+            "Data engineering and platform teams",
+        ],
+    }
+
+    days_61_90 = {
+        "phase": "Days 61-90: Scale, Adoption, and Handover",
+        "objectives": [
+            "Refine MVPs based on user feedback and usage patterns.",
+            "Create a clear expansion path from initial use cases to the next wave of activation.",
+            "Transfer ownership patterns, documentation, and operating guidance to the customer team.",
+            "Leave the customer with a practical roadmap for post-engagement execution.",
+        ],
+        "deliverables": [
+            "Refined MVPs with feedback incorporated.",
+            "Phase-two activation recommendations.",
+            "Handover pack covering architecture, ownership, and next steps.",
+            "Customer enablement sessions and operational run guidance.",
+        ],
+        "teams": [
+            "Customer data team",
+            "Business sponsors",
+            "Account team / customer success counterparts",
+        ],
+    }
+
+    if industry == "Retail":
+        days_1_30["deliverables"].append("Baseline inventory, demand, and customer-signal views for rapid commercial prioritization.")
+        days_31_60["deliverables"].append("Operational stockout, sentiment, or conversion MVPs ready for stakeholder review.")
+
+    if unstructured_data:
+        days_31_60["objectives"].append("Introduce text or feedback signal processing where it supports the selected MVPs.")
+
+    if priorities:
+        days_61_90["objectives"].append(
+            "Define the next two to three use cases that logically follow from the initial priority set."
         )
 
-    if "Improve promotion effectiveness" in priorities:
-        days_1_30_deliverables.append("Promotion performance dataset with initial business reporting.")
-
-    days_30_60_objectives = [
-        "Enable business users to explore data without waiting on analysts.",
-        "Build trust in Snowflake as both a reporting and insight platform.",
-    ]
-    days_30_60_deliverables = [
-        "Governed self-serve analytics capability.",
-        "Business examples showing how natural language questions map to decisions.",
-    ]
-    days_30_60_teams = ["Analytics team", "Business stakeholders"]
-
-    if "Improve customer sentiment insight" in priorities and unstructured_data:
-        days_30_60_objectives.append("Turn customer feedback into usable insight.")
-        days_30_60_deliverables.extend(
-            [
-                "Search-ready text insight layer across reviews, tickets, or return reasons.",
-                "Complaint theme reporting with citations and trend visibility.",
-            ]
-        )
-        days_30_60_teams.append("Customer support / CX team")
-
-    if "Reduce support load" in priorities and unstructured_data:
-        days_30_60_deliverables.append("Support theme analysis and triage visibility.")
-
-    if industry == "Financial Services":
-        days_30_60_deliverables.append("Governed access patterns and business-facing auditability examples.")
-
-    days_60_90_objectives = [
-        "Introduce scoped AI workflows that support operational decisions.",
-        "Keep humans in the approval loop.",
-        "Demonstrate movement from reporting into AI-assisted action.",
-    ]
-    days_60_90_deliverables = [
-        "Approval and monitoring framework for AI recommendations.",
-    ]
-    days_60_90_teams = ["Business owners", "Analytics team", "Operational teams"]
-
-    if "Reduce stockouts" in priorities:
-        days_60_90_deliverables.append("Inventory risk workflow generating prioritized replenishment recommendations.")
-    if "Increase conversion" in priorities:
-        days_60_90_deliverables.append("Batch recommendation MVP for merchandising or campaign planning.")
-    if "Improve forecasting" in priorities:
-        days_60_90_deliverables.append("Forecast-oriented decision support workflow for planners.")
-    if "Improve customer sentiment insight" in priorities and unstructured_data:
-        days_60_90_deliverables.append("Sentiment spike alert workflow for customer or product teams.")
-    if "Reduce support load" in priorities and unstructured_data:
-        days_60_90_deliverables.append("Support triage assistant for recurring issue detection.")
-    if "Improve promotion effectiveness" in priorities:
-        days_60_90_deliverables.append("Promotion advisor workflow for campaign review and optimization.")
-
-    if len(days_60_90_deliverables) == 1:
-        days_60_90_deliverables.insert(0, "At least one operational decision-support workflow tied to a priority use case.")
-
-    return [
-        {
-            "phase": "Days 1–30: Platform Foundation and Initial Value",
-            "objectives": days_1_30_objectives,
-            "deliverables": days_1_30_deliverables,
-            "teams": days_1_30_teams,
-        },
-        {
-            "phase": "Days 30–60: Self-Serve Analytics and Customer Insight",
-            "objectives": days_30_60_objectives,
-            "deliverables": days_30_60_deliverables,
-            "teams": days_30_60_teams,
-        },
-        {
-            "phase": "Days 60–90: AI-Assisted Decision Support",
-            "objectives": days_60_90_objectives,
-            "deliverables": days_60_90_deliverables,
-            "teams": days_60_90_teams,
-        },
-    ]
+    return [days_1_30, days_31_60, days_61_90]
 
 
 def generate_handover(fiscal_timing: str) -> str:
-    if fiscal_timing == "Near end of quarter/year":
-        return """
-**Recommended handover:** Acquisition Solution Engineer
+    commercial_note = {
+        "Near end of quarter/year": (
+            "Because the customer is close to a fiscal boundary, the handover should emphasize clear ownership, "
+            "quick-win evidence, and a realistic prioritization of what must happen next versus what can wait."
+        ),
+        "Good time left in fiscal year": (
+            "Because the customer has room left in the fiscal cycle, the handover can balance short-term wins with a cleaner path to the next wave of platform and use-case expansion."
+        ),
+    }.get(
+        fiscal_timing,
+        "The handover should balance short-term proof with a practical path to continued execution."
+    )
 
-At the end of the 90-day activation, the customer should have:
-- a stable landing zone
-- validated business data products
-- at least one functioning AI-assisted workflow
-- clear ownership of pipelines, analytics assets, and usage monitoring
+    return f"""By Day 90, the customer should not just have a set of deliverables — they should have a clearer operating model for how to continue.
 
-Because this handover occurs near the end of the fiscal period, responsibility would return to the **Acquisition Solution Engineer** for continued onboarding and early consumption growth.
-"""
-    return """
-**Recommended handover:** Expansion Solution Engineer
+**Recommended handover elements**
+- Confirm ownership across data engineering, analytics, business stakeholders, and executive sponsors.
+- Document the production flow from source ingestion through curated outputs and consumption layers.
+- Capture known risks, dependencies, and deferred design decisions.
+- Provide a sequenced next-step roadmap covering both platform work and business use cases.
+- Ensure the account team understands where the customer has momentum and where additional support may be needed.
 
-At the end of the 90-day activation, the customer should have:
-- a stable landing zone
-- validated business data products
-- at least one functioning AI-assisted workflow
-- clear ownership of pipelines, analytics assets, and usage monitoring
+{commercial_note}
 
-Because there is still good time left in the fiscal year, responsibility would transition to the **Expansion Solution Engineer** to scale adoption across departments and introduce additional AI workloads.
-"""
+A strong Day 90 handover should leave the customer able to say: we understand what has been built, why it matters, who owns it, and what the next logical expansion steps are."""
 
 
 def generate_agent_templates(
     industry: str,
-    priorities: List[str],
-) -> List[Dict]:
-    agents = []
+    priorities: list[str],
+) -> list[dict[str, Any]]:
+    agents: list[dict[str, Any]] = []
 
     if "Reduce stockouts" in priorities:
-        agent_name = "Inventory Risk Agent"
-        purpose = "Identify SKUs at risk of stockout and recommend actions."
-        if industry == "Manufacturing":
-            agent_name = "Supply Risk Agent"
-            purpose = "Identify parts or materials at risk of shortage and recommend actions."
         agents.append(
             {
-                "name": agent_name,
-                "purpose": purpose,
-                "inputs": ["inventory snapshots", "sales velocity", "product metadata"],
-                "pattern": "Sense → Reason → Propose → Approve → Track",
+                "name": "Stockout Risk Agent",
+                "purpose": "Summarize products or locations at highest risk of stockout and explain the likely driver.",
+                "inputs": [
+                    "Inventory position",
+                    "Recent sales velocity",
+                    "Replenishment lead time",
+                    "Channel or location context",
+                ],
+                "pattern": "Monitor -> rank risk -> explain likely cause -> recommend action",
             }
         )
 
     if "Improve customer sentiment insight" in priorities:
         agents.append(
             {
-                "name": "Sentiment Spike Agent",
-                "purpose": "Detect emerging complaint spikes in customer feedback.",
-                "inputs": ["reviews", "support tickets", "return reasons", "product metadata"],
-                "pattern": "Sense → Reason → Propose → Approve → Track",
+                "name": "Customer Signal Agent",
+                "purpose": "Summarize emerging complaint themes, sentiment shifts, and likely operational root causes.",
+                "inputs": [
+                    "Support tickets",
+                    "Reviews or feedback text",
+                    "Return reasons",
+                    "Product or customer segment metadata",
+                ],
+                "pattern": "Ingest text -> classify themes -> detect spikes -> summarize implications",
             }
         )
 
     if "Increase conversion" in priorities:
         agents.append(
             {
-                "name": "Bundle Recommendation Agent",
-                "purpose": "Suggest inventory-aware bundles for campaigns.",
-                "inputs": ["order history", "product affinity data", "inventory availability"],
-                "pattern": "Sense → Reason → Propose → Approve → Track",
+                "name": "Conversion Insight Agent",
+                "purpose": "Highlight likely friction points in the purchase journey and prioritize actions to improve conversion.",
+                "inputs": [
+                    "Sales or funnel data",
+                    "Customer behavior signals",
+                    "Campaign or channel context",
+                    "Customer feedback indicators",
+                ],
+                "pattern": "Compare journey stages -> identify drop-offs -> connect to likely drivers -> suggest interventions",
             }
         )
 
     if "Improve forecasting" in priorities:
         agents.append(
             {
-                "name": "Demand Forecast Agent",
-                "purpose": "Highlight likely demand spikes and planning risks.",
-                "inputs": ["sales history", "promotion calendar", "inventory position"],
-                "pattern": "Sense → Reason → Propose → Approve → Track",
+                "name": "Demand Planning Agent",
+                "purpose": "Generate a concise planning-oriented summary of likely demand shifts and associated risks.",
+                "inputs": [
+                    "Historical sales",
+                    "Inventory positions",
+                    "Seasonality signals",
+                    "Promotion context",
+                ],
+                "pattern": "Combine trend signals -> detect anomalies -> summarize forecast implications",
             }
         )
 
     if "Reduce support load" in priorities:
         agents.append(
             {
-                "name": "Support Triage Agent",
-                "purpose": "Classify inbound issues and surface recurring themes.",
-                "inputs": ["tickets", "chat transcripts", "case metadata"],
-                "pattern": "Sense → Reason → Propose → Approve → Track",
+                "name": "Support Volume Agent",
+                "purpose": "Explain what is driving contact volume and identify the most valuable reduction opportunities.",
+                "inputs": [
+                    "Ticket text",
+                    "Ticket categories",
+                    "Escalation data",
+                    "Customer or product context",
+                ],
+                "pattern": "Classify contact reasons -> measure frequency and impact -> prioritize fixes",
             }
         )
 
     if "Improve promotion effectiveness" in priorities:
         agents.append(
             {
-                "name": "Promotion Advisor Agent",
-                "purpose": "Assess campaign performance and suggest where to optimize.",
-                "inputs": ["campaign data", "sales performance", "margin data", "inventory context"],
-                "pattern": "Sense → Reason → Propose → Approve → Track",
+                "name": "Promotion Performance Agent",
+                "purpose": "Explain which promotions are working, where performance differs, and what to change next.",
+                "inputs": [
+                    "Campaign data",
+                    "Sales response",
+                    "Product attributes",
+                    "Segment performance",
+                ],
+                "pattern": "Compare campaigns -> identify uplift drivers -> summarize recommendations",
             }
         )
 
-    return agents
+    if not agents:
+        agents.append(
+            {
+                "name": f"{industry} Insight Agent",
+                "purpose": "Summarize priority operational patterns and recommend next actions from curated Snowflake data.",
+                "inputs": [
+                    "Curated business data",
+                    "Relevant operational context",
+                    "Stakeholder-defined priority metrics",
+                ],
+                "pattern": "Monitor -> summarize -> prioritize -> recommend",
+            }
+        )
+
+    return agents[:3]
+
+
+def _serialize_for_prompt(value: Any) -> str:
+    try:
+        return json.dumps(value, indent=2, ensure_ascii=False)
+    except Exception:
+        return str(value)
 
 
 def enhance_plan_with_llm(
     api_key: str,
     customer_name: str,
     industry: str,
-    data_sources: list,
+    data_sources: list[str],
     bi_tool: str,
     refresh_cadence: str,
-    priorities: list,
-    unstructured_data: list,
+    priorities: list[str],
+    unstructured_data: list[str],
     fiscal_timing: str,
+    additional_context: str,
     summary: str,
     architecture: str,
-    mvps: list,
-    roadmap: list,
+    mvps: list[dict[str, Any]],
+    roadmap: list[dict[str, Any]],
     handover: str,
-    agents: list,
+    agents: list[dict[str, Any]],
 ) -> str:
     client = OpenAI(api_key=api_key)
 
-    prompt = f"""
-You are a Snowflake Activation Engineer preparing a sharp executive-ready activation recommendation.
+    system_prompt = """You are a senior Snowflake activation strategist.
 
-Use the structured inputs below to produce a more thoughtful, customer-specific plan.
+Your job is to refine a draft 90-day customer activation blueprint into a sharper, more executive-ready version.
 
+Requirements:
+- Keep recommendations practical and commercially grounded.
+- Make the output sound like a customer-facing activation plan, not internal notes.
+- Strengthen the plan with explicit risks, dependencies, success metrics, and talk track ideas.
+- Use the additional customer discovery notes if provided.
+- Do not invent niche technical specifics unless supported by the input.
+- Be concise but substantive.
+- Format the response in markdown.
+
+Use the following exact structure:
+
+## Executive framing
+A concise paragraph explaining what the customer needs and how the activation should be framed.
+
+## Recommended activation posture
+3-5 bullets.
+
+## Refined MVP recommendations
+For each MVP, provide:
+### [MVP name]
+- What to deliver
+- Why it matters now
+- Risk or dependency
+- Success metric
+
+## Key delivery risks and mitigations
+4-6 bullets.
+
+## Day 90 success measures
+4-6 bullets.
+
+## Customer talk track
+A short set of bullets that an account engineer could say to the customer.
+
+## Recommended next-step expansion
+A concise paragraph on what should come after the initial 90 days.
+"""
+
+    user_prompt = f"""
 Customer name: {customer_name}
 Industry: {industry}
-Data sources: {", ".join(data_sources) if data_sources else "Not specified"}
-BI tool: {bi_tool}
-Refresh cadence: {refresh_cadence}
-Business priorities: {", ".join(priorities) if priorities else "Not specified"}
-Unstructured data: {", ".join(unstructured_data) if unstructured_data else "None"}
+Primary data sources: {_fmt_list(data_sources)}
+Primary BI tool: {bi_tool}
+Operational refresh cadence: {refresh_cadence}
+Business priorities: {_fmt_list(priorities)}
+Unstructured data available: {_fmt_list(unstructured_data)}
 Fiscal timing: {fiscal_timing}
 
-Base summary:
+Additional customer context:
+{additional_context.strip() if additional_context.strip() else "None provided."}
+
+Draft activation summary:
 {summary}
 
-Base architecture:
+Draft architecture:
 {architecture}
 
-Base MVPs:
-{mvps}
+Draft MVPs:
+{_serialize_for_prompt(mvps)}
 
-Base roadmap:
-{roadmap}
+Draft roadmap:
+{_serialize_for_prompt(roadmap)}
 
-Base handover:
+Draft handover:
 {handover}
 
-Base agents:
-{agents}
-
-Return markdown with these sections:
-
-# Executive Summary
-A concise commercial summary of the customer situation and activation objective.
-
-# Recommended First MVP
-Choose the single best MVP to lead with and explain why.
-
-# Recommended Snowflake Architecture
-Make this specific to the customer context.
-
-# 30-60-90 Plan
-Make each phase specific to the selected priorities.
-
-# Risks and Dependencies
-List the main delivery risks or assumptions.
-
-# Success Metrics
-Give 4-6 measurable outcomes.
-
-# Executive Talk Track
-Write a short spoken talk track I could use in a customer meeting.
-
-Be specific, commercially realistic, and avoid generic filler.
+Draft agent templates:
+{_serialize_for_prompt(agents)}
 """
 
     response = client.responses.create(
-        model="gpt-5",
-        input=prompt,
+        model="gpt-5.1-mini",
+        input=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
     )
 
-    return response.output_text
+    return response.output_text.strip()
