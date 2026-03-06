@@ -1,4 +1,5 @@
-from typing import Dict, List
+from typing import List, Dict
+from openai import OpenAI
 
 
 def generate_activation_summary(
@@ -17,7 +18,6 @@ def generate_activation_summary(
 **BI environment:** {bi_tool}  
 **Operational cadence:** {refresh_cadence}  
 **Business priorities:** {", ".join(priorities) if priorities else "Not specified"}  
-**Unstructured data available:** {", ".join(unstructured_data) if unstructured_data else "None specified"}  
 
 This activation plan is designed to deliver measurable value quickly while building an AI-ready Snowflake foundation.
 The focus is on trusted data products first, then self-serve analytics, then AI-assisted decision support.
@@ -36,21 +36,19 @@ def generate_architecture(
     if "MySQL" in data_sources:
         ingestion_lines.append("- Use CDC ingestion for MySQL operational data.")
     if "Postgres" in data_sources:
-        ingestion_lines.append("- Use CDC or scheduled replication for Postgres transactional data.")
+        ingestion_lines.append("- Ingest Postgres operational data into Snowflake for trusted reporting.")
     if "SQL Server" in data_sources:
-        ingestion_lines.append("- Use structured batch or CDC pipelines for SQL Server workloads.")
+        ingestion_lines.append("- Replicate SQL Server data for analytics and operational reporting.")
     if "Redshift" in data_sources:
-        ingestion_lines.append(
-            "- Use Redshift as a historical backfill source while Snowflake becomes the trusted analytics environment."
-        )
+        ingestion_lines.append("- Use Redshift as a historical backfill source while Snowflake becomes the trusted analytics environment.")
     if "BigQuery" in data_sources:
-        ingestion_lines.append("- Backfill curated analytics datasets from BigQuery where needed.")
+        ingestion_lines.append("- Migrate selected analytical datasets from BigQuery into governed Snowflake data products.")
     if "S3" in data_sources:
-        ingestion_lines.append("- Land files from S3 into a governed ingestion zone for batch processing.")
+        ingestion_lines.append("- Use staged ingestion for files and event data landing in S3.")
     if "APIs" in data_sources:
-        ingestion_lines.append("- Use API ingestion for operational signals that are not available in core databases.")
+        ingestion_lines.append("- Ingest API-fed operational and partner signals on a scheduled basis.")
     if "Salesforce" in data_sources:
-        ingestion_lines.append("- Replicate CRM data to join pipeline, customer, and commercial signals.")
+        ingestion_lines.append("- Ingest CRM and pipeline data from Salesforce for business-facing reporting.")
     if unstructured_data:
         ingestion_lines.append("- Ingest unstructured sources as search-ready text collections with metadata.")
 
@@ -64,7 +62,6 @@ def generate_architecture(
             "- Use a Bronze / Silver / Gold medallion structure.",
             "- Build AI-ready data products early (signals layer + text collections).",
             "- Separate compute using INGEST_WH, TRANSFORM_WH, BI_WH, and AI_WH.",
-            f"- Tailor the semantic layer and KPIs to {industry.lower()} decision workflows.",
             "",
             "**Ingestion approach**",
             *ingestion_lines,
@@ -113,19 +110,29 @@ def generate_mvps(
         mvps.append(
             {
                 "title": "Forecasting MVP",
-                "scope": "SKU or category-level demand forecast with exception reporting for planners.",
-                "why": "Creates a decision-ready planning asset without requiring a large ML platform build first.",
-                "outcome": "Improve ordering decisions and reduce overstock or missed demand.",
+                "scope": "Demand-risk view for planners using historical sales, promotions, and inventory context.",
+                "why": "Improves planning quality without needing a full advanced ML platform on day one.",
+                "outcome": "Better replenishment timing and fewer missed revenue opportunities.",
+            }
+        )
+
+    if "Reduce support load" in priorities and unstructured_data:
+        mvps.append(
+            {
+                "title": "Support Triage MVP",
+                "scope": "Categorize inbound support themes and identify recurring drivers.",
+                "why": "Creates immediate operational visibility from existing support content.",
+                "outcome": "Reduce manual triage effort and speed up issue identification.",
             }
         )
 
     if "Improve promotion effectiveness" in priorities:
         mvps.append(
             {
-                "title": "Promotion Performance MVP",
-                "scope": "Post-promotion analysis showing lift, margin impact, and inventory effects.",
-                "why": "Helps commercial teams decide which promotion patterns to repeat or retire.",
-                "outcome": "Improve promotional ROI and reduce avoidable discounting.",
+                "title": "Promotion Effectiveness MVP",
+                "scope": "Measure promotion lift, margin impact, and inventory effect across campaigns.",
+                "why": "Directly ties data activation to commercial decision-making.",
+                "outcome": "Improve campaign quality and reduce wasted promotional spend.",
             }
         )
 
@@ -143,43 +150,39 @@ def generate_roadmap(
             "objectives": [
                 "Establish Snowflake as a trusted analytics environment for priority workloads.",
                 "Ingest core structured data quickly.",
-                "Deliver early visibility into operational performance and demand trends.",
+                "Deliver early visibility into inventory and demand trends.",
             ],
             "deliverables": [
                 "Landing zone setup with environments, RBAC, and warehouse structure.",
-                "Core structured ingestion for priority systems.",
-                "Historical backfill from legacy warehouse if needed.",
+                "Initial ingestion of core operational data sources.",
+                "Historical backfill from legacy warehouse where needed.",
                 f"Operational ingestion aligned to {refresh_cadence}.",
-                "Validated KPI datasets for early executive and operator reporting.",
-                "Initial dashboards for business and analytics stakeholders.",
+                "Validated business-ready datasets for first reporting use cases.",
+                "Initial dashboards for priority business teams.",
             ],
             "teams": [
                 "Data engineering team",
                 "Analytics team",
-                "Business domain stakeholders",
-                "Platform owners",
+                "Business stakeholders",
             ],
         },
         {
             "phase": "Days 30–60: Self-Serve Analytics and Customer Insight",
             "objectives": [
                 "Enable business users to explore data without waiting on analysts.",
-                "Turn customer or operational feedback into usable insight.",
+                "Turn customer feedback into usable insight.",
                 "Build trust in Snowflake as both a reporting and insight platform.",
             ],
             "deliverables": [
-                "Governed self-serve analytics patterns for business users.",
-                "Cortex Search or equivalent text exploration capability over unstructured sources."
-                if unstructured_data
-                else "Text insight capability if unstructured data becomes available.",
-                "Insight dashboards and trend reporting tied to business priorities.",
-                "Business examples showing how natural-language questions map to decisions.",
+                "Governed self-serve analytics capability.",
+                "Search-ready text insight layer." if unstructured_data else "Prepare text insight capability if unstructured data becomes available.",
+                "Customer or operational trend reporting.",
+                "Business examples showing how natural language questions map to decisions.",
             ],
             "teams": [
                 "Analytics team",
-                "Business users",
+                "Business stakeholders",
                 "Customer support / CX team" if unstructured_data else "Operations team",
-                "Product or commercial stakeholders",
             ],
         },
         {
@@ -190,16 +193,14 @@ def generate_roadmap(
                 "Demonstrate movement from reporting into AI-assisted action.",
             ],
             "deliverables": [
-                "At least one thin-slice AI workflow tied to a priority business use case.",
-                "Monitoring, approval, and exception-handling framework.",
-                "Operational playbook for ownership and adoption.",
-                "Business readout demonstrating value, usage, and next-step expansion.",
+                "At least one operational decision-support workflow.",
+                "Alerting or recommendation workflow tied to business priorities.",
+                "Approval and monitoring framework for AI recommendations.",
             ],
             "teams": [
-                "Business process owners",
-                "Analytics and data team",
-                "Operations or commercial team",
-                "Executive sponsors",
+                "Business owners",
+                "Analytics team",
+                "Operational teams",
             ],
         },
     ]
@@ -220,7 +221,6 @@ At the end of the 90-day activation, the customer should have:
 
 Because this handover occurs near the end of the fiscal period, responsibility would return to the **Acquisition Solution Engineer** for continued onboarding and early consumption growth.
 """
-
     return """
 **Recommended handover:** Expansion Solution Engineer
 
@@ -274,20 +274,100 @@ def generate_agent_templates(
         agents.append(
             {
                 "name": "Demand Forecast Agent",
-                "purpose": "Surface forecast exceptions and planning risks for the next ordering cycle.",
-                "inputs": ["historical sales", "promotions", "inventory levels", "seasonality signals"],
-                "pattern": "Sense → Forecast → Flag → Review → Act",
+                "purpose": "Highlight likely demand spikes and planning risks.",
+                "inputs": ["sales history", "promotion calendar", "inventory position"],
+                "pattern": "Sense → Reason → Propose → Approve → Track",
+            }
+        )
+
+    if "Reduce support load" in priorities:
+        agents.append(
+            {
+                "name": "Support Triage Agent",
+                "purpose": "Classify inbound issues and surface recurring themes.",
+                "inputs": ["tickets", "chat transcripts", "case metadata"],
+                "pattern": "Sense → Reason → Propose → Approve → Track",
             }
         )
 
     if "Improve promotion effectiveness" in priorities:
         agents.append(
             {
-                "name": "Promotion Review Agent",
-                "purpose": "Summarize promotion lift, margin impact, and repeatability.",
-                "inputs": ["campaign data", "sales results", "margin data", "inventory impact"],
-                "pattern": "Sense → Compare → Explain → Recommend → Track",
+                "name": "Promotion Advisor Agent",
+                "purpose": "Assess campaign performance and suggest where to optimize.",
+                "inputs": ["campaign data", "sales performance", "margin data", "inventory context"],
+                "pattern": "Sense → Reason → Propose → Approve → Track",
             }
         )
 
     return agents
+
+
+def enhance_plan_with_llm(
+    api_key: str,
+    customer_name: str,
+    industry: str,
+    data_sources: list,
+    bi_tool: str,
+    refresh_cadence: str,
+    priorities: list,
+    unstructured_data: list,
+    fiscal_timing: str,
+    summary: str,
+    architecture: str,
+    mvps: list,
+    roadmap: list,
+    handover: str,
+    agents: list,
+) -> str:
+    client = OpenAI(api_key=api_key)
+
+    prompt = f"""
+You are a Snowflake Activation Engineer preparing an executive-ready activation plan.
+
+Rewrite the following deterministic activation blueprint into polished, commercially credible markdown.
+
+Customer name: {customer_name}
+Industry: {industry}
+Data sources: {", ".join(data_sources) if data_sources else "Not specified"}
+BI tool: {bi_tool}
+Refresh cadence: {refresh_cadence}
+Business priorities: {", ".join(priorities) if priorities else "Not specified"}
+Unstructured data: {", ".join(unstructured_data) if unstructured_data else "None"}
+Fiscal timing: {fiscal_timing}
+
+RULE-BASED SUMMARY:
+{summary}
+
+RULE-BASED ARCHITECTURE:
+{architecture}
+
+RULE-BASED MVPS:
+{mvps}
+
+RULE-BASED ROADMAP:
+{roadmap}
+
+RULE-BASED HANDOVER:
+{handover}
+
+RULE-BASED AGENTS:
+{agents}
+
+Return markdown with these sections:
+1. Executive Summary
+2. Recommended Architecture
+3. Thin-Slice MVPs
+4. 30-60-90 Activation Plan
+5. Handover Recommendation
+6. Suggested Agent Templates
+
+Keep it realistic, concise, polished, and easy to present in an interview.
+"""
+
+    response = client.responses.create(
+        model="gpt-5",
+        input=prompt,
+    )
+
+    return response.output_text
