@@ -50,6 +50,15 @@ st.markdown(
 st.title("AI Activation Copilot")
 st.caption("Generate a 90-day Snowflake activation blueprint from customer discovery inputs.")
 
+if "plan_generated" not in st.session_state:
+    st.session_state.plan_generated = False
+
+if "enhanced_output" not in st.session_state:
+    st.session_state.enhanced_output = None
+
+if "last_plan_signature" not in st.session_state:
+    st.session_state.last_plan_signature = None
+
 with st.sidebar:
     st.header("Customer Inputs")
 
@@ -104,15 +113,10 @@ with st.sidebar:
         index=1,
     )
 
-    generate = st.button("Generate Activation Plan", type="primary", use_container_width=True)
+    if st.button("Generate Activation Plan", type="primary", use_container_width=True):
+        st.session_state.plan_generated = True
 
-if "enhanced_output" not in st.session_state:
-    st.session_state.enhanced_output = None
-
-if "last_plan_signature" not in st.session_state:
-    st.session_state.last_plan_signature = None
-
-if not generate:
+if not st.session_state.plan_generated:
     st.markdown(
         """
         <div class="hero-card">
