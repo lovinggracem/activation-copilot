@@ -64,15 +64,6 @@ st.markdown(
         margin-bottom: 1rem;
     }}
 
-    .content-card {{
-        background: {CARD_BG};
-        border: 1px solid {BORDER};
-        border-radius: 18px;
-        padding: 1.2rem 1.2rem 0.9rem 1.2rem;
-        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
-        margin-bottom: 1rem;
-    }}
-
     div[data-testid="metric-container"] {{
         background: {CARD_BG};
         border: 1px solid {BORDER};
@@ -416,8 +407,7 @@ with tab4:
     with left:
         render_markdown_in_card("Day 90 Handover", handover)
     with right:
-        st.markdown('<div class="content-card">', unsafe_allow_html=True)
-        st.markdown("### Suggested Agent Templates")
+        st.subheader("Suggested Agent Templates")
         if agents:
             for agent in agents:
                 with st.expander(agent["name"], expanded=False):
@@ -428,7 +418,6 @@ with tab4:
                     st.markdown(f"**Pattern:** {agent['pattern']}")
         else:
             st.info("No agent templates were generated for the selected priorities.")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 st.divider()
 st.subheader("AI Enhancement")
